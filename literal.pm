@@ -7,7 +7,7 @@ use UNIVERSAL;
 #			IDL to Java Language Mapping Specification, Version 1.2 August 2002
 #
 
-package JavaLiteralVisitor;
+package CORBA::JAVA::literalVisitor;
 
 # needs $node->{java_name} (JavaNameVisitor) for Enum
 # builds $node->{java_literal}
@@ -33,14 +33,14 @@ sub _get_defn {
 	}
 }
 
-sub visitNameType {
+sub visitType {
 	my $self = shift;
 	my ($type) = @_;
 
 	if (ref $type) {
-		$type->visitName($self);
+		$type->visit($self);
 	} else {
-		$self->{symbtab}->Lookup($type)->visitName($self);
+		$self->{symbtab}->Lookup($type)->visit($self);
 	}
 }
 
@@ -48,11 +48,11 @@ sub visitNameType {
 #	3.5		OMG IDL Specification
 #
 
-sub visitNameSpecification {
+sub visitSpecification {
 	my $self = shift;
 	my ($node) = @_;
 	foreach (@{$node->{list_export}}) {
-		$self->{symbtab}->Lookup($_)->visitName($self);
+		$self->{symbtab}->Lookup($_)->visit($self);
 	}
 }
 
@@ -60,11 +60,11 @@ sub visitNameSpecification {
 #	3.7		Module Declaration
 #
 
-sub visitNameModules {
+sub visitModules {
 	my $self = shift;
 	my ($node) = @_;
 	foreach (@{$node->{list_export}}) {
-		$self->{symbtab}->Lookup($_)->visitName($self);
+		$self->{symbtab}->Lookup($_)->visit($self);
 	}
 }
 
@@ -72,46 +72,41 @@ sub visitNameModules {
 #	3.8		Interface Declaration
 #
 
-sub visitNameBaseInterface {
+sub visitBaseInterface {
 	my $self = shift;
 	my ($node) = @_;
 	return if (exists $node->{$self->{key}});
 	$node->{$self->{key}} = 1;
 	foreach (@{$node->{list_export}}) {
-		$self->{symbtab}->Lookup($_)->visitName($self);
+		$self->{symbtab}->Lookup($_)->visit($self);
 	}
+}
+
+sub visitForwardBaseInterface {
+	# empty
 }
 
 #
 #	3.9		Value Declaration
 #
 
-sub visitNameStateMember {
-	my $self = shift;
-	my ($node) = @_;
-	$self->visitNameType($node->{type});	# type_spec
-	if (exists $node->{array_size}) {
-		foreach (@{$node->{array_size}}) {
-			my $str = $_->{value};
-			$str =~ s/^\+//;
-			$_->{$self->{key}} = $str;
-		}
-	}
+sub visitStateMember {
+	shift->visitMember(@_);
 }
 
-sub visitNameInitializer {
-	my $self = shift;
-	my ($node) = @_;
-	foreach (@{$node->{list_param}}) {
-		$_->visitName($self);				# parameter
-	}
+sub visitInitializer {
+	shift->visitOperation(@_);
+}
+
+sub visitBoxedValue {
+	shift->visitTypeDeclarator(@_);
 }
 
 #
 #	3.10	Constant Declaration
 #
 
-sub visitNameConstant {
+sub visitConstant {
 	my $self = shift;
 	my ($node) = @_;
 	my $defn;
@@ -123,8 +118,8 @@ sub visitNameConstant {
 	} else {
 		$node->{$self->{key}} = $node->{java_Name} . '.value';
 	}
-	$node->{value}->visitName($self);		# expression
-	$self->_get_defn($node->{type})->visitName($self);
+	$node->{value}->visit($self);		# expression
+	$self->_get_defn($node->{type})->visit($self);
 }
 
 sub _Eval {
@@ -146,7 +141,7 @@ sub _Eval {
 	} elsif ( $elt->isa('Enum') ) {
 		return $elt->{java_Name};
 	} elsif ( $elt->isa('Literal') ) {
-		$elt->visitName($self, $type);
+		$elt->visit($self, $type);
 		return $elt->{$self->{key}};
 	} else {
 		warn __PACKAGE__,"::_Eval: INTERNAL ERROR ",ref $elt,".\n";
@@ -154,14 +149,14 @@ sub _Eval {
 	}
 }
 
-sub visitNameExpression {
+sub visitExpression {
 	my $self = shift;
 	my ($node) = @_;
 	my @list_expr = @{$node->{list_expr}};		# create a copy
 	$node->{$self->{key}} = $self->_Eval(\@list_expr, $node->{type});
 }
 
-sub visitNameIntegerLiteral {
+sub visitIntegerLiteral {
 	my $self = shift;
 	my ($node, $type) = @_;
 	my $str = $node->{value};
@@ -182,12 +177,12 @@ sub visitNameIntegerLiteral {
 	} elsif ($type->{value} eq 'octet') {
 		$cast = "(byte)";
 	} else {
-		warn __PACKAGE__,"::visitNameIntegerLiteral $type->{value}.\n";
+		warn __PACKAGE__,"::visitIntegerLiteral $type->{value}.\n";
 	}
 	$node->{$self->{key}} = $cast . $str;
 }
 
-sub visitNameStringLiteral {
+sub visitStringLiteral {
 	my $self = shift;
 	my ($node) = @_;
 	my @list = unpack "C*",$node->{value};
@@ -209,11 +204,11 @@ sub visitNameStringLiteral {
 	$node->{$self->{key}} = $str;
 }
 
-sub visitNameWideStringLiteral {
-	shift->visitNameStringLiteral(@_);
+sub visitWideStringLiteral {
+	shift->visitStringLiteral(@_);
 }
 
-sub visitNameCharacterLiteral {
+sub visitCharacterLiteral {
 	my $self = shift;
 	my ($node) = @_;
 	my @list = unpack "C",$node->{value};
@@ -234,11 +229,11 @@ sub visitNameCharacterLiteral {
 	$node->{$self->{key}} = $str;
 }
 
-sub visitNameWideCharacterLiteral {
-	shift->visitNameCharacterLiteral(@_);
+sub visitWideCharacterLiteral {
+	shift->visitCharacterLiteral(@_);
 }
 
-sub visitNameFixedPtLiteral {
+sub visitFixedPtLiteral {
 	my $self = shift;
 	my ($node) = @_;
 	my $str = "\"";
@@ -247,7 +242,7 @@ sub visitNameFixedPtLiteral {
 	$node->{$self->{key}} = $str;
 }
 
-sub visitNameFloatingPtLiteral {
+sub visitFloatingPtLiteral {
 	my $self = shift;
 	my ($node, $type) = @_;
 	my $str = $node->{value};
@@ -261,7 +256,7 @@ sub visitNameFloatingPtLiteral {
 	$node->{$self->{key}} = $str;
 }
 
-sub visitNameBooleanLiteral {
+sub visitBooleanLiteral {
 	my $self = shift;
 	my ($node) = @_;
 	if ($node->{value} eq 'TRUE') {
@@ -275,11 +270,11 @@ sub visitNameBooleanLiteral {
 #	3.11	Type Declaration
 #
 
-sub visitNameTypeDeclarator {
+sub visitTypeDeclarator {
 	my $self = shift;
 	my ($node) = @_;
 	return if (exists $node->{modifier});	# native IDL2.2
-	$self->visitNameType($node->{type});
+	$self->visitType($node->{type});
 	if (exists $node->{array_size}) {
 		foreach (@{$node->{array_size}}) {
 			my $str = $_->{value};
@@ -293,11 +288,11 @@ sub visitNameTypeDeclarator {
 #	3.11.1	Basic Types
 #
 
-sub visitNameBasicType {
+sub visitBasicType {
 	# empty
 }
 
-sub visitNameAnyType {
+sub visitAnyType {
 	# empty
 }
 
@@ -307,83 +302,79 @@ sub visitNameAnyType {
 #	3.11.2.1	Structures
 #
 
-sub visitNameStructType {
+sub visitStructType {
 	my $self = shift;
 	my ($node) = @_;
 	return if (exists $node->{$self->{key}});
 	$node->{$self->{key}} = 1;
-	foreach (@{$node->{list_value}}) {
-		$self->visitNameType($_);			# single or array
+	foreach (@{$node->{list_member}}) {
+		$self->visitType($_);			# member
 	}
 }
 
-sub visitNameArray {
+sub visitMember {
 	my $self = shift;
 	my ($node) = @_;
-	$self->visitNameType($node->{type});
-	foreach (@{$node->{array_size}}) {
-		my $str = $_->{value};
-		$str =~ s/^\+//;
-		$_->{$self->{key}} = $str;
+	$self->visitType($node->{type});
+	if (exists $node->{array_size}) {
+		foreach (@{$node->{array_size}}) {
+			my $str = $_->{value};
+			$str =~ s/^\+//;
+			$_->{$self->{key}} = $str;
+		}
 	}
-}
-
-sub visitNameSingle {
-	my $self = shift;
-	my ($node) = @_;
-	$self->visitNameType($node->{type});
 }
 
 #	3.11.2.2	Discriminated Unions
 #
 
-sub visitNameUnionType {
+sub visitUnionType {
 	my $self = shift;
 	my ($node) = @_;
 	return if (exists $node->{$self->{key}});
 	$node->{$self->{key}} = 1;
 	my $type = $self->_get_defn($node->{type});
-	$self->visitNameType($type);
+	$self->visitType($type);
 	foreach (@{$node->{list_expr}}) {
-		$_->visitName($self, $type);		# case
+		$_->visit($self, $type);		# case
 	}
 }
 
-sub visitNameCase {
+sub visitCase {
 	my $self = shift;
 	my ($node, $type) = @_;
 	foreach (@{$node->{list_label}}) {
 		if      ($type->isa('EnumType') and $_->isa('Expression')) {
 			$_->{$self->{key}} = $type->{java_Name} . '._' . $_->{value}->{java_name};
 		} else {
-			$_->visitName($self);			# default or expression
+			$_->visit($self);			# default or expression
 		}
 	}
-	$node->{element}->visitName($self);		# array or single
+	$node->{element}->visit($self);		# member
 }
 
-sub visitNameDefault {
+sub visitDefault {
 	# empty
 }
 
-sub visitNameElement {
+sub visitElement {
 	my $self = shift;
 	my ($node) = @_;
-	$self->visitNameType($node->{value});	# single or array
+	$self->visitType($node->{value});	# member
 }
 
 #	3.11.2.4	Enumerations
 #
 
-sub visitNameEnumType {
+sub visitEnumType {
 	my $self = shift;
 	my ($node) = @_;
 	foreach (@{$node->{list_expr}}) {
-		$_->visitName($self);				# enum
+		$_->visit($self);				# enum
 	}
 }
 
-sub visitNameEnum {
+sub visitEnum {
 	my $self = shift;
 	my ($node) = @_;
 	my $type = $self->_get_defn($node->{type});
@@ -394,33 +385,31 @@ sub visitNameEnum {
 #	3.11.3	Template Types
 #
 
-sub visitNameSequenceType {
+sub visitSequenceType {
 	my $self = shift;
 	my ($node) = @_;
-	$self->visitNameType($node->{type});
-	$node->{max}->visitName($self) if (exists $node->{max});
+	$self->visitType($node->{type});
+	$node->{max}->visit($self) if (exists $node->{max});
 }
 
-sub visitNameStringType {
+sub visitStringType {
 	my $self = shift;
 	my ($node) = @_;
-	$node->{max}->visitName($self) if (exists $node->{max});
+	$node->{max}->visit($self) if (exists $node->{max});
 }
 
-sub visitNameWideStringType {
+sub visitWideStringType {
+	shift->visitStringType(@_);
+}
+
+sub visitFixedPtType {
 	my $self = shift;
 	my ($node) = @_;
-	$node->{max}->visitName($self) if (exists $node->{max});
+	$node->{d}->visit($self);
+	$node->{s}->visit($self);
 }
 
-sub visitNameFixedPtType {
-	my $self = shift;
-	my ($node) = @_;
-	$node->{d}->visitName($self);
-	$node->{s}->visitName($self);
-}
-
-sub visitNameFixedPtConstType {
+sub visitFixedPtConstType {
 	# empty
 }
 
@@ -428,34 +417,31 @@ sub visitNameFixedPtConstType {
 #	3.12	Exception Declaration
 #
 
-sub visitNameException {
-	my $self = shift;
-	my ($node) = @_;
-	foreach (@{$node->{list_value}}) {
-		$self->visitNameType($_);			# single or array
-	}
+sub visitException {
+	shift->visitStructType(@_);
 }
 
 #
 #	3.13	Operation Declaration
 #
 
-sub visitNameOperation {
+sub visitOperation {
 	my $self = shift;
 	my ($node) = @_;
-	$self->visitNameType($node->{type});	# param_type_spec or void
+	$self->visitType($node->{type})		# param_type_spec or void
+			if (exists $node->{type});		# initializer or factory or finder
 	foreach (@{$node->{list_param}}) {
-		$_->visitName($self);				# parameter
+		$_->visit($self);				# parameter
 	}
 }
 
-sub visitNameParameter {
+sub visitParameter {
 	my $self = shift;
 	my ($node) = @_;
-	$self->visitNameType($node->{type});	# param_type_spec
+	$self->visitType($node->{type});	# param_type_spec
 }
 
-sub visitNameVoidType {
+sub visitVoidType {
 	# empty
 }
 
@@ -463,21 +449,21 @@ sub visitNameVoidType {
 #	3.14	Attribute Declaration
 #
 
-sub visitNameAttribute {
+sub visitAttribute {
 	my $self = shift;
 	my ($node) = @_;
-	$self->visitNameType($node->{type});	# param_type_spec
+	$self->visitType($node->{type});	# param_type_spec
 }
 
 #
 #	3.15	Repository Identity Related Declarations
 #
 
-sub visitNameTypeId {
+sub visitTypeId {
 	# empty
 }
 
-sub visitNameTypePrefix {
+sub visitTypePrefix {
 	# empty
 }
 
@@ -489,23 +475,23 @@ sub visitNameTypePrefix {
 #	3.17	Component Declaration
 #
 
-sub visitNameProvides {
+sub visitProvides {
 	# empty
 }
 
-sub visitNameUses {
+sub visitUses {
 	# empty
 }
 
-sub visitNamePublishes {
+sub visitPublishes {
 	# empty
 }
 
-sub visitNameEmits {
+sub visitEmits {
 	# empty
 }
 
-sub visitNameConsumes {
+sub visitConsumes {
 	# empty
 }
 
@@ -513,20 +499,12 @@ sub visitNameConsumes {
 #	3.18	Home Declaration
 #
 
-sub visitNameFactory {
-	my $self = shift;
-	my ($node) = @_;
-	foreach (@{$node->{list_param}}) {
-		$_->visitName($self);				# parameter
-	}
+sub visitFactory {
+	shift->visitOperation(@_);
 }
 
-sub visitNameFinder {
-	my $self = shift;
-	my ($node) = @_;
-	foreach (@{$node->{list_param}}) {
-		$_->visitName($self);				# parameter
-	}
+sub visitFinder {
+	shift->visitOperation(@_);
 }
 
 1;

@@ -1,5 +1,13 @@
 Revision history for Perl extension CORBA::JAVA.
 
+2.20  Thu Feb 19 18:30:00 2004
+	- compatible with CORBA::IDL 2.20
+	- first full featured version
+	- extra : toString and equals methods
+	- many refactoring
+	- idl2java.pl : add option -h (display help)
+	- idl2java.pl : add option -v (display version)
+
 0.05  Wed Dec 17 12:30:00 2003
 	- CORBA IDL 3.0
 	- IDL to Java Language Mapping, Version 1.2

@@ -28,9 +28,5 @@ Build/Installation:
 	$ make
 	$ make install
 
-To Do:
-------
-    This module is not currently complete
-    - union, exception, value type, new features from CORBA 3.0
 
 Send bug reports, comments and suggestions to francois.perrad@gadz.org

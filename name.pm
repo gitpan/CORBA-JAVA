@@ -7,7 +7,7 @@ use UNIVERSAL;
 #			IDL to Java Language Mapping Specification, Version 1.2 August 2002
 #
 
-package JavaNameVisitor;
+package CORBA::JAVA::nameVisitor;
 
 # builds $node->{java_name} and $node->{java_package}
 
@@ -16,11 +16,30 @@ sub new {
 	my $class = ref($proto) || $proto;
 	my $self = {};
 	bless($self, $class);
-	my ($parser) = @_;
+	my ($parser, $prefix, $translate) = @_;
 	$self->{key} = 'java_name';
 	$self->{srcname} = $parser->YYData->{srcname};
 	$self->{symbtab} = $parser->YYData->{symbtab};
 	$self->{num_key} = 'num_java_name';
+	$self->{pkg_prefix} = {};
+	if (defined $prefix) {
+		foreach (split /;/, $prefix) {
+			my @kv = split /=/, $_;
+			if (scalar(@kv) == 2) {
+				$self->{pkg_prefix}->{$kv[0]} = $kv[1];
+			}
+		}
+	}
+	$self->{pkg_translate} = {};
+	if (defined $translate) {
+		foreach (split /;/, $translate) {
+			my @kv = split /=/, $_;
+			if (scalar(@kv) == 2) {
+				next if ($kv[0] eq "org" or $kv[0] eq "org.omg" or $kv[0] =~ /^"org.omg."/);
+				$self->{pkg_translate}->{$kv[0]} = $kv[1];
+			}
+		}
+	}
 	$self->{java_keywords} = {
 		# The keywords in the Java Language :
 		# (from the Java Language Specification 1.0 First Edition, Section 3.9)
@@ -130,8 +149,20 @@ sub _get_pkg {
 				or $node->isa('Exception')
 				or $node->isa('TypeDeclarator') )
 			and (  $defn->isa('BaseInterface')
-				or $defn->isa('UnionType') ) ) {
+				or $defn->isa('UnionType')
+				or $defn->isa('StructType') ) ) {
 		$package .= "Package";
+	}
+	foreach (keys %{$self->{pkg_prefix}}) {
+		if ($package =~ /^$_/) {
+			$package = $self->{pkg_prefix}->{$_} . "." . $package;
+			last;
+		}
+	}
+	foreach (keys %{$self->{pkg_translate}}) {
+		if ($package =~ s/^$_/$self->{pkg_translate}->{$_}/) {
+			last;
+		}
 	}
 	return $package;
 }
@@ -151,11 +182,11 @@ sub _get_Name {
 #	3.5		OMG IDL Specification
 #
 
-sub visitNameSpecification {
+sub visitSpecification {
 	my $self = shift;
 	my ($node) = @_;
 	foreach (@{$node->{list_decl}}) {
-		$self->_get_defn($_)->visitName($self);
+		$self->_get_defn($_)->visit($self);
 	}
 }
 
@@ -163,7 +194,7 @@ sub visitNameSpecification {
 #	3.7		Module Declaration
 #
 
-sub visitNameModules {
+sub visitModules {
 	my $self = shift;
 	my ($node) = @_;
 	unless (exists $node->{$self->{num_key}}) {
@@ -173,15 +204,15 @@ sub visitNameModules {
 		$node->{java_Name} = $self->_get_Name($node);
 	}
 	my $module = ${$node->{list_decl}}[$node->{$self->{num_key}}];
-	$module->visitName($self);
+	$module->visit($self);
 	$node->{$self->{num_key}} ++;
 }
 
-sub visitNameModule {
+sub visitModule {
 	my $self = shift;
 	my ($node) = @_;
 	foreach (@{$node->{list_decl}}) {
-		$self->_get_defn($_)->visitName($self);
+		$self->_get_defn($_)->visit($self);
 	}
 }
 
@@ -189,7 +220,7 @@ sub visitNameModule {
 #	3.8		Interface Declaration
 #
 
-sub visitNameBaseInterface {
+sub visitBaseInterface {
 	my $self = shift;
 	my ($node) = @_;
 	return if (exists $node->{java_package});
@@ -197,55 +228,40 @@ sub visitNameBaseInterface {
 	$node->{java_name} = $self->_get_name($node);
 	$node->{java_Name} = $self->_get_Name($node);
 	foreach (@{$node->{list_decl}}) {
-		$self->_get_defn($_)->visitName($self);
+		$self->_get_defn($_)->visit($self);
 	}
 }
 
-sub visitNameForwardRegularInterface {
-	# empty
-}
-
-sub visitNameForwardAbstractInterface {
-	# empty
-}
-
-sub visitNameForwardLocalInterface {
-	# empty
+sub visitForwardBaseInterface {
+	my $self = shift;
+	my ($node) = @_;
+	return if (exists $node->{java_package});
+	$node->{java_package} = $self->_get_pkg($node);
+	$node->{java_name} = $self->_get_name($node);
+	$node->{java_Name} = $self->_get_Name($node);
 }
 
 #
 #	3.9		Value Declaration
 #
 
-sub visitNameStateMembers {
+sub visitStateMembers {
 	my $self = shift;
 	my ($node) = @_;
 	foreach (@{$node->{list_decl}}) {
-		$self->_get_defn($_)->visitName($self);
+		$self->_get_defn($_)->visit($self);
 	}
 }
 
-sub visitNameStateMember {
-	my $self = shift;
-	my ($node) = @_;
-	$self->_get_defn($node->{type})->visitName($self);
-	$node->{java_package} = $self->_get_pkg($node);
-	$node->{java_name} = $self->_get_name($node);
-	$node->{java_Name} = $self->_get_Name($node);
+sub visitStateMember {
+	shift->visitMember(@_);
 }
 
-sub visitNameInitializer {
-	my $self = shift;
-	my ($node) = @_;
-	$node->{java_package} = $self->_get_pkg($node);
-	$node->{java_name} = $self->_get_name($node);
-	$node->{java_Name} = $self->_get_Name($node);
-	foreach (@{$node->{list_param}}) {
-		$_->visitName($self);			# parameter
-	}
+sub visitInitializer {
+	shift->visitOperation(@_);
 }
 
-sub visitNameBoxedValue {
+sub visitBoxedValue {
 	my $self = shift;
 	my ($node) = @_;
 	return if (exists $node->{java_package});
@@ -257,14 +273,14 @@ sub visitNameBoxedValue {
 			or $type->isa('WideCharType')
 			or $type->isa('BooleanType')
 			or $type->isa('OctetType') ) {
-		$type->visitName($self);
+		$type->visit($self);
 		$node->{java_package} = $self->_get_pkg($node);
 		$node->{java_name} = $self->_get_name($node);
 		$node->{java_Name} = $self->_get_Name($node);
 		$node->{java_primitive} = 1;
 	} else {
 		if ($type->isa('SequenceType')) {
-			$type->visitName($self);
+			$type->visit($self);
 			$type->{repos_id} = $node->{repos_id};
 			$type = $self->_get_defn($type->{type});
 			$node->{java_name} = $type->{java_name} . "[]";
@@ -278,24 +294,16 @@ sub visitNameBoxedValue {
 			$node->{java_package} = $self->_get_pkg($node);
 			$node->{java_name} = $self->_get_name($node);
 			$node->{java_Name} = $self->_get_Name($node);
-			$type->visitName($self);
+			$type->visit($self);
 		}
 	}
-}
-
-sub visitNameForwardRegularValue {
-	# empty
-}
-
-sub visitNameForwardAbstractValue {
-	# empty
 }
 
 #
 #	3.10	Constant Declaration
 #
 
-sub visitNameConstant {
+sub visitConstant {
 	my $self = shift;
 	my ($node) = @_;
 	$node->{java_package} = $self->_get_pkg($node);
@@ -310,10 +318,10 @@ sub visitNameConstant {
 	} else {
 		$node->{java_Name} = $self->_get_Name($node) . ".value";
 	}
-	$type->visitName($self);
+	$type->visit($self);
 }
 
-sub visitNameExpression {
+sub visitExpression {
 	# empty
 }
 
@@ -321,25 +329,25 @@ sub visitNameExpression {
 #	3.11	Type Declaration
 #
 
-sub visitNameTypeDeclarators {
+sub visitTypeDeclarators {
 	my $self = shift;
 	my ($node) = @_;
 	foreach (@{$node->{list_decl}}) {
-		$self->_get_defn($_)->visitName($self);
+		$self->_get_defn($_)->visit($self);
 	}
 }
 
-sub visitNameTypeDeclarator {
+sub visitTypeDeclarator {
 	my $self = shift;
 	my ($node) = @_;
 	if (exists $node->{modifier}) {		# native
-		$node->{java_package} = "org.omg.PortableServer";
+		$node->{java_package} = $self->_get_pkg($node);
 		$node->{java_name} = $self->_get_name($node);
 		$node->{java_Name} = $self->_get_Name($node);
 	} else {
 		return if (exists $node->{java_package});
 		my $type = $self->_get_defn($node->{type});
-		$type->visitName($self);
+		$type->visit($self);
 		if (	   $type->isa('BasicType')
 				or $type->isa('StringType')
 				or $type->isa('WideStringType')
@@ -387,7 +395,7 @@ sub visitNameTypeDeclarator {
 #	See	1.4		Mapping for Basic Data Types
 #
 
-sub visitNameBasicType {
+sub visitBasicType {
 	my $self = shift;
 	my ($node) = @_;
 	if      ($node->isa('FloatingPtType')) {
@@ -405,7 +413,7 @@ sub visitNameBasicType {
 			$node->{java_name} = "double";
 			$node->{java_Name} = "double";
 		} else {
-			warn __PACKAGE__,"::visitNameBasicType (FloatingType) $node->{value}.\n";
+			warn __PACKAGE__,"::visitBasicType (FloatingType) $node->{value}.\n";
 		}
 	} elsif ($node->isa('IntegerType')) {
 		if      ($node->{value} eq 'short') {
@@ -433,7 +441,7 @@ sub visitNameBasicType {
 			$node->{java_name} = "long";
 			$node->{java_Name} = "long";
 		} else {
-			warn __PACKAGE__,"::visitNameBasicType (IntegerType) $node->{value}.\n";
+			warn __PACKAGE__,"::visitBasicType (IntegerType) $node->{value}.\n";
 		}
 	} elsif ($node->isa('CharType')) {
 		$node->{java_package} = "";
@@ -464,7 +472,7 @@ sub visitNameBasicType {
 		$node->{java_name} = "Serializable";
 		$node->{java_Name} = "java.io.Serializable";
 	} else {
-		warn __PACKAGE__,"::visitNameBasicType INTERNAL ERROR (",ref $node,").\n";
+		warn __PACKAGE__,"::visitBasicType INTERNAL ERROR (",ref $node,").\n";
 	}
 }
 
@@ -474,27 +482,19 @@ sub visitNameBasicType {
 #	3.11.2.1	Structures
 #
 
-sub visitNameStructType {
+sub visitStructType {
 	my $self = shift;
 	my ($node) = @_;
 	return if (exists $node->{java_package});
 	$node->{java_package} = $self->_get_pkg($node);
 	$node->{java_name} = $self->_get_name($node);
 	$node->{java_Name} = $self->_get_Name($node);
-	foreach (@{$node->{list_value}}) {
-		$self->_get_defn($_)->visitName($self);		# single or array
+	foreach (@{$node->{list_member}}) {
+		$self->_get_defn($_)->visit($self);		# 'Member'
 	}
 }
 
-sub visitNameArray {
-	my $self = shift;
-	my ($node) = @_;
-	my $type = $self->_get_defn($node->{type});
-	$type->visitName($self);
-	$node->{java_name} = $self->_get_name($node);
-}
-
-sub visitNameSingle {
+sub visitMember {
 	my $self = shift;
 	my ($node) = @_;
 	my $type = $self->_get_defn($node->{type});
@@ -506,70 +506,70 @@ sub visitNameSingle {
 		while ($type->isa('SequenceType')) {
 			$type = $self->_get_defn($type->{type});
 		}
-		$type->visitName($self);
+		$type->visit($self);
 	} else {
-		$type->visitName($self);
+		$type->visit($self);
 	}
 }
 
 #	3.11.2.2	Discriminated Unions
 #
 
-sub visitNameUnionType {
+sub visitUnionType {
 	my $self = shift;
 	my ($node) = @_;
 	return if (exists $node->{java_package});
 	$node->{java_package} = $self->_get_pkg($node);
 	$node->{java_name} = $self->_get_name($node);
 	$node->{java_Name} = $self->_get_Name($node);
-	$self->_get_defn($node->{type})->visitName($self);
+	$self->_get_defn($node->{type})->visit($self);
 	foreach (@{$node->{list_expr}}) {
-		$_->visitName($self);			# case
+		$_->visit($self);			# case
 	}
 }
 
-sub visitNameCase {
+sub visitCase {
 	my $self = shift;
 	my ($node) = @_;
 	foreach (@{$node->{list_label}}) {
-		$_->visitName($self);			# default or expression
+		$_->visit($self);			# default or expression
 	}
-	$node->{element}->visitName($self);
+	$node->{element}->visit($self);
 }
 
-sub visitNameDefault {
+sub visitDefault {
 	# empty
 }
 
-sub visitNameElement {
+sub visitElement {
 	my $self = shift;
 	my ($node) = @_;
-	$self->_get_defn($node->{value})->visitName($self);		# single or array
+	$self->_get_defn($node->{value})->visit($self);		# 'Member'
 }
 
-sub visitNameForwardStructType {
+sub visitForwardStructType {
 	# empty
 }
 
-sub visitNameForwardUnionType {
+sub visitForwardUnionType {
 	# empty
 }
 
 #	3.11.2.4	Enumerations
 #
 
-sub visitNameEnumType {
+sub visitEnumType {
 	my $self = shift;
 	my ($node) = @_;
 	$node->{java_package} = $self->_get_pkg($node);
 	$node->{java_name} = $self->_get_name($node);
 	$node->{java_Name} = $self->_get_Name($node);
 	foreach (@{$node->{list_expr}}) {
-		$_->visitName($self);			# enum
+		$_->visit($self);			# enum
 	}
 }
 
-sub visitNameEnum {
+sub visitEnum {
 	my $self = shift;
 	my ($node) = @_;
 	my $type = $self->_get_defn($node->{type});
@@ -584,13 +584,13 @@ sub visitNameEnum {
 #	See	1.11	Mapping for Sequence Types
 #
 
-sub visitNameSequenceType {
+sub visitSequenceType {
 	my $self = shift;
 	my ($node, $name) = @_;
 	return if (exists $node->{java_package});
 	$node->{java_package} = $self->_get_pkg($node);
 	my $type = $self->_get_defn($node->{type});
-	$type->visitName($self);
+	$type->visit($self);
 	unless (defined $name) {
 		$name = '_seq_' . $type->{java_name};
 		if (exists $node->{max}) {
@@ -606,7 +606,7 @@ sub visitNameSequenceType {
 #	See	1.12	Mapping for Strings
 #
 
-sub visitNameStringType {
+sub visitStringType {
 	my $self = shift;
 	my ($node) = @_;
 	$node->{java_package} = "java.lang";
@@ -618,19 +618,15 @@ sub visitNameStringType {
 #	See	1.13	Mapping for Wide Strings
 #
 
-sub visitNameWideStringType {
-	my $self = shift;
-	my ($node) = @_;
-	$node->{java_package} = "java.lang";
-	$node->{java_name} = "String";
-	$node->{java_Name} = "java.lang.String";
+sub visitWideStringType {
+	shift->visitStringType(@_);
 }
 
 #
 #	See	1.14	Mapping for Fixed
 #
 
-sub visitNameFixedPtType {
+sub visitFixedPtType {
 	my $self = shift;
 	my ($node) = @_;
 	$node->{java_package} = "java.math";
@@ -638,28 +634,16 @@ sub visitNameFixedPtType {
 	$node->{java_Name} = "java.math.BigDecimal";
 }
 
-sub visitNameFixedPtConstType {
-	my $self = shift;
-	my($node) = @_;
-	$node->{java_package} = "java.math";
-	$node->{java_name} = "BigDecimal";
-	$node->{java_Name} = "java.math.BigDecimal";
+sub visitFixedPtConstType {
+	shift->visitFixedPtType(@_);
 }
 
 #
 #	3.12	Exception Declaration
 #
 
-sub visitNameException {
-	my $self = shift;
-	my ($node) = @_;
-	return if (exists $node->{java_package});
-	$node->{java_package} = $self->_get_pkg($node);
-	$node->{java_name} = $self->_get_name($node);
-	$node->{java_Name} = $self->_get_Name($node);
-	foreach (@{$node->{list_value}}) {
-		$self->_get_defn($_)->visitName($self);		# single or array
-	}
+sub visitException {
+	shift->visitStructType(@_);
 }
 
 #
@@ -668,25 +652,27 @@ sub visitNameException {
 #	See	1.4		Inheritance and Operation Names
 #
 
-sub visitNameOperation {
+sub visitOperation {
 	my $self = shift;
 	my ($node) = @_;
 	$node->{java_package} = $self->_get_pkg($node);
 	$node->{java_name} = $self->_get_name($node);
-	$self->_get_defn($node->{type})->visitName($self);
+	$node->{java_Name} = $self->_get_Name($node);
+	$self->_get_defn($node->{type})->visit($self)
+			if (exists $node->{type});				# initializer or factory or finder
 	foreach (@{$node->{list_param}}) {
-		$_->visitName($self);			# parameter
+		$_->visit($self);			# parameter
 	}
 }
 
-sub visitNameParameter {
+sub visitParameter {
 	my $self = shift;
 	my($node) = @_;
 	$node->{java_name} = $self->_get_name($node);
-	$self->_get_defn($node->{type})->visitName($self);
+	$self->_get_defn($node->{type})->visit($self);
 }
 
-sub visitNameVoidType {
+sub visitVoidType {
 	my $self = shift;
 	my ($node) = @_;
 	$node->{java_Name} = "void";
@@ -696,30 +682,30 @@ sub visitNameVoidType {
 #	3.14	Attribute Declaration
 #
 
-sub visitNameAttributes {
+sub visitAttributes {
 	my $self = shift;
 	my ($node) = @_;
 	foreach (@{$node->{list_decl}}) {
-		$self->_get_defn($_)->visitName($self);
+		$self->_get_defn($_)->visit($self);
 	}
 }
 
-sub visitNameAttribute {
+sub visitAttribute {
 	my $self = shift;
 	my ($node) = @_;
-	$node->{_get}->visitName($self);
-	$node->{_set}->visitName($self) if (exists $node->{_set});
+	$node->{_get}->visit($self);
+	$node->{_set}->visit($self) if (exists $node->{_set});
 }
 
 #
 #	3.15	Repository Identity Related Declarations
 #
 
-sub visitNameTypeId {
+sub visitTypeId {
 	# empty
 }
 
-sub visitNameTypePrefix {
+sub visitTypePrefix {
 	# empty
 }
 
@@ -727,19 +713,11 @@ sub visitNameTypePrefix {
 #	3.16	Event Declaration
 #
 
-sub visitNameForwardRegularEvent {
-	# empty
-}
-
-sub visitNameForwardAbstractEvent {
-	# empty
-}
-
 #
 #	3.17	Component Declaration
 #
 
-sub visitNameProvides {
+sub visitProvides {
 	my $self = shift;
 	my ($node) = @_;
 	$node->{java_package} = $self->_get_pkg($node);
@@ -747,7 +725,7 @@ sub visitNameProvides {
 	$node->{java_Name} = $self->_get_Name($node);
 }
 
-sub visitNameUses {
+sub visitUses {
 	my $self = shift;
 	my ($node) = @_;
 	$node->{java_package} = $self->_get_pkg($node);
@@ -755,7 +733,7 @@ sub visitNameUses {
 	$node->{java_Name} = $self->_get_Name($node);
 }
 
-sub visitNamePublishes {
+sub visitPublishes {
 	my $self = shift;
 	my ($node) = @_;
 	$node->{java_package} = $self->_get_pkg($node);
@@ -763,7 +741,7 @@ sub visitNamePublishes {
 	$node->{java_Name} = $self->_get_Name($node);
 }
 
-sub visitNameEmits {
+sub visitEmits {
 	my $self = shift;
 	my ($node) = @_;
 	$node->{java_package} = $self->_get_pkg($node);
@@ -771,7 +749,7 @@ sub visitNameEmits {
 	$node->{java_Name} = $self->_get_Name($node);
 }
 
-sub visitNameConsumes {
+sub visitConsumes {
 	my $self = shift;
 	my ($node) = @_;
 	$node->{java_package} = $self->_get_pkg($node);
@@ -783,33 +761,19 @@ sub visitNameConsumes {
 #	3.18	Home Declaration
 #
 
-sub visitNameFactory {
-	my $self = shift;
-	my ($node) = @_;
-	$node->{java_package} = $self->_get_pkg($node);
-	$node->{java_name} = $self->_get_name($node);
-	$node->{java_Name} = $self->_get_Name($node);
-	foreach (@{$node->{list_param}}) {
-		$_->visitName($self);			# parameter
-	}
+sub visitFactory {
+	shift->visitOperation(@_);
 }
 
-sub visitNameFinder {
-	my $self = shift;
-	my ($node) = @_;
-	$node->{java_package} = $self->_get_pkg($node);
-	$node->{java_name} = $self->_get_name($node);
-	$node->{java_Name} = $self->_get_Name($node);
-	foreach (@{$node->{list_param}}) {
-		$_->visitName($self);			# parameter
-	}
+sub visitFinder {
+	shift->visitOperation(@_);
 }
 
 ###############################################################################
 
-package JavaName2Visitor;
+package CORBA::JAVA::name2Visitor;
 
-@JavaName2Visitor::ISA = qw(JavaNameVisitor);
+@CORBA::JAVA::name2Visitor::ISA = qw(CORBA::JAVA::nameVisitor);
 
 sub new {
 	my $proto = shift;
@@ -846,11 +810,11 @@ sub _get_stub {
 #	3.5		OMG IDL Specification
 #
 
-sub visitNameSpecification {
+sub visitSpecification {
 	my $self = shift;
 	my ($node) = @_;
 	foreach (@{$node->{list_export}}) {
-		$self->{symbtab}->Lookup($_)->visitName($self);
+		$self->{symbtab}->Lookup($_)->visit($self);
 	}
 }
 
@@ -858,11 +822,11 @@ sub visitNameSpecification {
 #	3.7		Module Declaration
 #
 
-sub visitNameModules {
+sub visitModules {
 	my $self = shift;
 	my ($node) = @_;
 	foreach (@{$node->{list_export}}) {
-		$self->{symbtab}->Lookup($_)->visitName($self);
+		$self->{symbtab}->Lookup($_)->visit($self);
 	}
 }
 
@@ -870,7 +834,7 @@ sub visitNameModules {
 #	3.8		Interface Declaration
 #
 
-sub visitNameBaseInterface {
+sub visitBaseInterface {
 	my $self = shift;
 	my ($node) = @_;
 	return if (exists $node->{java_Helper});
@@ -883,63 +847,43 @@ sub visitNameBaseInterface {
 	$node->{java_write} = $node->{java_Helper} . ".write (\$os, ";
 	$node->{java_type_code} = $node->{java_Helper} . ".type ()";
 	foreach (@{$node->{list_export}}) {
-		$self->{symbtab}->Lookup($_)->visitName($self);
+		$self->{symbtab}->Lookup($_)->visit($self);
 	}
+}
+
+sub visitForwardBaseInterface {
+	my $self = shift;
+	my ($node) = @_;
+	return if (exists $node->{java_Helper});
+	$node->{java_stub} = $self->_get_stub($node);
+	$node->{java_Helper} = $node->{java_Name} . "Helper";
+	$node->{java_helper} = $node->{java_name};
+	$node->{java_Holder} = $node->{java_Name} . "Holder";
+	$node->{java_init} = "null";
+	$node->{java_read} = $node->{java_Helper} . ".read (\$is)";
+	$node->{java_write} = $node->{java_Helper} . ".write (\$os, ";
+	$node->{java_type_code} = $node->{java_Helper} . ".type ()";
 }
 
 #
 #	3.9		Value Declaration
 #
 
-sub visitNameStateMember {
-	my $self = shift;
-	my ($node) = @_;
-	my $type = $self->_get_defn($node->{type});
-	my $array = '';
-	foreach (@{$node->{array_size}}) {
-		$array .= "[]";
-	}
-	while ($type->isa('TypeDeclarator') and !exists($type->{array_size})) {
-		$type = $self->_get_defn($type->{type});
-	}
-	if ($type->isa('SequenceType') or exists ($type->{array_size})) {
-		if ($type->{array_size}) {
-			foreach (@{$type->{array_size}}) {
-				$array .= "[]";
-			}
-			$type = $self->_get_defn($type->{type});
-		}
-		while ($type->isa('SequenceType')) {
-			$array .= "[]";
-			$type = $self->_get_defn($type->{type});
-		}
-		$type->visitName($self);
-		$node->{java_init} = $type->{java_Name} . " " . $node->{java_name} . $array . " = null";		# struct
-		$node->{java__init} = $type->{java_Name} . " _" . $node->{java_name} . $array . " = null";		# union
-#		$node->{java_type} = $type->{java_Name} . $array;
-	} else {
-		$type->visitName($self);
-		$node->{java_init} = $type->{java_Name} . " " . $node->{java_name} . " = " . $type->{java_init};
-		$node->{java__init} = $type->{java_Name} . " _" . $node->{java_name} . " = " . $type->{java_init};
-#		$node->{java_type} = $type->{java_Name};
-	}
+sub visitStateMember {
+	shift->visitMember(@_);
 }
 
-sub visitNameInitializer {
-	my $self = shift;
-	my ($node) = @_;
-	foreach (@{$node->{list_param}}) {
-		$_->visitName($self);			# parameter
-	}
+sub visitInitializer {
+	shift->visitOperation(@_);
 }
 
-sub visitNameBoxedValue {
+sub visitBoxedValue {
 	my $self = shift;
 	my ($node) = @_;
 	return if (exists $node->{java_Helper});
 
 	my $type = $self->_get_defn($node->{type});
-	$type->visitName($self);
+	$type->visit($self);
 	if (exists $node->{java_primitive}) {
 		$node->{java_Helper} = $node->{java_Name} . "Helper";
 		$node->{java_helper} = $node->{java_name};
@@ -963,14 +907,14 @@ sub visitNameBoxedValue {
 #	3.10	Constant Declaration
 #
 
-sub visitNameConstant {
+sub visitConstant {
 	my $self = shift;
 	my ($node) = @_;
 	$node->{java_helper} = $node->{java_name};
-	$self->_get_defn($node->{type})->visitName($self);
+	$self->_get_defn($node->{type})->visit($self);
 }
 
-sub visitNameExpression {
+sub visitExpression {
 	# empty
 }
 
@@ -978,7 +922,7 @@ sub visitNameExpression {
 #	3.11	Type Declaration
 #
 
-sub visitNameTypeDeclarator {
+sub visitTypeDeclarator {
 	my $self = shift;
 	my ($node) = @_;
 	if (exists $node->{modifier}) {		# native
@@ -992,12 +936,13 @@ sub visitNameTypeDeclarator {
 	} else {
 		return if (exists $node->{java_Helper});
 		my $type = $self->_get_defn($node->{type});
-		$type->visitName($self);
+		$type->visit($self);
 		if (exists $node->{array_size}) {
 			$node->{java_Helper} = $node->{java_Name} . "Helper";
 			$node->{java_helper} = $node->{java_name};
 			$node->{java_Holder} = $node->{java_Name} . "Holder";
 			$node->{java_init} = "null";
+#			$node->{java_init} = "new java.util.Vector (0)";
 			$node->{java_read} = $node->{java_Helper} . ".read (\$is)";
 			$node->{java_write} = $node->{java_Helper} . ".write (\$os, ";
 			$node->{java_type_code} = $node->{java_Helper} . ".type ()";
@@ -1007,6 +952,7 @@ sub visitNameTypeDeclarator {
 				$node->{java_Helper} = $self->_get_Helper($node) . "Helper";
 				$node->{java_Holder} = $self->_get_Helper($node) . "Holder";
 				$node->{java_init} = "null";
+#				$node->{java_init} = "new java.util.Vector (0)";
 				$node->{java_read} = $node->{java_Helper} . ".read (\$is)";
 				$node->{java_write} = $node->{java_Helper} . ".write (\$os, ";
 				$node->{java_type_code} = $node->{java_Helper} . ".type ()";
@@ -1022,11 +968,13 @@ sub visitNameTypeDeclarator {
 					$node->{java_read} = $type->{java_read};
 					$node->{java_write} = $type->{java_write};
 					$node->{java_type_code} = $type->{java_type_code};
+					$node->{java_tk} = $type->{java_tk} if (exists $type->{java_tk});
 				} else {
 					$node->{java_Helper} = $node->{java_Name} . "Helper";
 					$node->{java_helper} = $node->{java_name};
 					$node->{java_Holder} = $node->{java_Name} . "Holder";
-					$node->{java_init} = "null";
+#					$node->{java_init} = "null";
+					$node->{java_init} = $type->{java_init};
 					$node->{java_read} = $node->{java_Helper} . ".read (\$is)";
 					$node->{java_write} = $node->{java_Helper} . ".write (\$os, ";
 					$node->{java_type_code} = $node->{java_Helper} . ".type ()";
@@ -1042,7 +990,7 @@ sub visitNameTypeDeclarator {
 #	See	1.4		Mapping for Basic Data Types
 #
 
-sub visitNameBasicType {
+sub visitBasicType {
 	my $self = shift;
 	my ($node) = @_;
 	if      ($node->isa('FloatingPtType')) {
@@ -1069,7 +1017,7 @@ sub visitNameBasicType {
 			$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_double)";
 			$node->{java_tk} = "double";
 		} else {
-			warn __PACKAGE__,"::visitName2BasicType (FloatingType) $node->{value}.\n";
+			warn __PACKAGE__,"::visit2BasicType (FloatingType) $node->{value}.\n";
 		}
 	} elsif ($node->isa('IntegerType')) {
 		if      ($node->{value} eq 'short') {
@@ -1115,7 +1063,7 @@ sub visitNameBasicType {
 			$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_ulonglong)";
 			$node->{java_tk} = "ulonglong";
 		} else {
-			warn __PACKAGE__,"::visitName2BasicType (IntegerType) $node->{value}.\n";
+			warn __PACKAGE__,"::visit2BasicType (IntegerType) $node->{value}.\n";
 		}
 	} elsif ($node->isa('CharType')) {
 		$node->{java_Holder} = "org.omg.CORBA.CharHolder";
@@ -1167,7 +1115,7 @@ sub visitNameBasicType {
 		$node->{java_type_code} = "org.omg.CORBA.ValueBaseHelper.type ()";
 #		$node->{java_tk} = "objref";
 	} else {
-		warn __PACKAGE__,"::visitName2BasicType INTERNAL ERROR (",ref $node,").\n";
+		warn __PACKAGE__,"::visit2BasicType INTERNAL ERROR (",ref $node,").\n";
 	}
 }
 
@@ -1177,7 +1125,7 @@ sub visitNameBasicType {
 #	3.11.2.1	Structures
 #
 
-sub visitNameStructType {
+sub visitStructType {
 	my $self = shift;
 	my ($node) = @_;
 	return if (exists $node->{java_Helper});
@@ -1188,38 +1136,25 @@ sub visitNameStructType {
 	$node->{java_read} = $node->{java_Helper} . ".read (\$is)";
 	$node->{java_write} = $node->{java_Helper} . ".write (\$os, ";
 	$node->{java_type_code} = $node->{java_Helper} . ".type ()";
-	foreach (@{$node->{list_value}}) {
-		$self->_get_defn($_)->visitName($self);		# single or array
+	foreach (@{$node->{list_member}}) {
+		$self->_get_defn($_)->visit($self);		# 'Member'
 	}
 }
 
-sub visitNameArray {
+sub visitMember {
 	my $self = shift;
 	my ($node) = @_;
 	my $type = $self->_get_defn($node->{type});
 	my $array = '';
-	foreach (@{$node->{array_size}}) {
-		$array .= "[]";
+	if (exists $node->{array_size}) {
+		foreach (@{$node->{array_size}}) {
+			$array .= "[]";
+		}
 	}
-	while ($type->isa('SequenceType')) {
-		$array .= "[]";
-		$type = $self->_get_defn($type->{type});
-	}
-	$type->visitName($self);
-	$node->{java_init} = $type->{java_Name} . " " . $node->{java_name} . $array . " = null";		# struct
-	$node->{java__init} = $type->{java_Name} . " _" . $node->{java_name} . $array . " = null";		# union
-	$node->{java_type} = $type->{java_Name} . $array;
-}
-
-sub visitNameSingle {
-	my $self = shift;
-	my ($node) = @_;
-	my $type = $self->_get_defn($node->{type});
 	while ($type->isa('TypeDeclarator') and !exists($type->{array_size})) {
 		$type = $self->_get_defn($type->{type});
 	}
 	if ($type->isa('SequenceType') or exists ($type->{array_size})) {
-		my $array = '';
 		if ($type->{array_size}) {
 			foreach (@{$type->{array_size}}) {
 				$array .= "[]";
@@ -1230,22 +1165,53 @@ sub visitNameSingle {
 			$array .= "[]";
 			$type = $self->_get_defn($type->{type});
 		}
-		$type->visitName($self);
-		$node->{java_init} = $type->{java_Name} . " " . $node->{java_name} . $array . " = null";		# struct
-		$node->{java__init} = $type->{java_Name} . " _" . $node->{java_name} . $array . " = null";		# union
-		$node->{java_type} = $type->{java_Name} . $array;
+	}
+	$type->visit($self);
+	$node->{type_java} = $type;
+	$node->{java_array} = $array;
+	$node->{java_type} = $type->{java_Name} . $array;
+	if (length $array) {
+		$node->{java_init} = "null";
 	} else {
-		$type->visitName($self);
-		$node->{java_init} = $type->{java_Name} . " " . $node->{java_name} . " = " . $type->{java_init};
-		$node->{java__init} = $type->{java_Name} . " _" . $node->{java_name} . " = " . $type->{java_init};
-		$node->{java_type} = $type->{java_Name};
+		$node->{java_init} = $type->{java_init};
+		if      ($type->isa('FloatingPtType')) {
+			if      ($type->{value} eq 'float') {
+				$node->{java_object} = "java.lang.Float";
+			} elsif ($type->{value} eq 'double') {
+				$node->{java_object} = "java.lang.Double";
+			} elsif ($type->{value} eq 'long double') {
+				$node->{java_object} = "java.lang.Double";
+			}
+		} elsif ($type->isa('IntegerType')) {
+			if      ($type->{value} eq 'short') {
+				$node->{java_object} = "java.lang.Short";
+			} elsif ($type->{value} eq 'unsigned short') {
+				$node->{java_object} = "java.lang.Short";
+			} elsif ($type->{value} eq 'long') {
+				$node->{java_object} = "java.lang.Integer";
+			} elsif ($type->{value} eq 'unsigned long') {
+				$node->{java_object} = "java.lang.Integer";
+			} elsif ($type->{value} eq 'long long') {
+				$node->{java_object} = "java.lang.Long";
+			} elsif ($type->{value} eq 'unsigned long long') {
+				$node->{java_object} = "java.lang.Long";
+			}
+		} elsif ($type->isa('CharType')) {
+			$node->{java_object} = "java.lang.Character";
+		} elsif ($type->isa('WideCharType')) {
+			$node->{java_object} = "java.lang.Character";
+		} elsif ($type->isa('BooleanType')) {
+			$node->{java_object} = "java.lang.Boolean";
+		} elsif ($type->isa('OctetType')) {
+			$node->{java_object} = "java.lang.Byte";
+		}
 	}
 }
 
 #	3.11.2.2	Discriminated Unions
 #
 
-sub visitNameUnionType {
+sub visitUnionType {
 	my $self = shift;
 	my ($node) = @_;
 	return if (exists $node->{java_Helper});
@@ -1256,35 +1222,35 @@ sub visitNameUnionType {
 	$node->{java_read} = $node->{java_Helper} . ".read (\$is)";
 	$node->{java_write} = $node->{java_Helper} . ".write (\$os, ";
 	$node->{java_type_code} = $node->{java_Helper} . ".type ()";
-	$self->_get_defn($node->{type})->visitName($self);
+	$self->_get_defn($node->{type})->visit($self);
 	foreach (@{$node->{list_expr}}) {
-		$_->visitName($self);			# case
+		$_->visit($self);			# case
 	}
 }
 
-sub visitNameCase {
+sub visitCase {
 	my $self = shift;
 	my ($node) = @_;
 	foreach (@{$node->{list_label}}) {
-		$_->visitName($self);			# default or expression
+		$_->visit($self);			# default or expression
 	}
-	$node->{element}->visitName($self);
+	$node->{element}->visit($self);
 }
 
-sub visitNameDefault {
+sub visitDefault {
 	# empty
 }
 
-sub visitNameElement {
+sub visitElement {
 	my $self = shift;
 	my ($node) = @_;
-	$self->_get_defn($node->{value})->visitName($self);		# single or array
+	$self->_get_defn($node->{value})->visit($self);		# single or array
 }
 
 #	3.11.2.4	Enumerations
 #
 
-sub visitNameEnumType {
+sub visitEnumType {
 	my $self = shift;
 	my ($node) = @_;
 	$node->{java_Helper} = $node->{java_Name} . "Helper";
@@ -1302,15 +1268,16 @@ sub visitNameEnumType {
 #	See	1.11	Mapping for Sequence Types
 #
 
-sub visitNameSequenceType {
+sub visitSequenceType {
 	my $self = shift;
 	my ($node) = @_;
 	return if (exists $node->{java_Helper});
-	$self->_get_defn($node->{type})->visitName($self);
+	$self->_get_defn($node->{type})->visit($self);
 	$node->{java_Helper} = $node->{java_Name} . "Helper";
 	$node->{java_helper} = $node->{java_name};
 	$node->{java_Holder} = $node->{java_Name} . "Holder";
 	$node->{java_init} = "null";
+#	$node->{java_init} = "new java.util.Vector (0)";
 	$node->{java_read} = $node->{java_Helper} . ".read (\$is)";
 	$node->{java_write} = $node->{java_Helper} . ".write (\$os, ";
 	$node->{java_type_code} = $node->{java_Helper} . ".type ()";
@@ -1320,11 +1287,11 @@ sub visitNameSequenceType {
 #	See	1.12	Mapping for Strings
 #
 
-sub visitNameStringType {
+sub visitStringType {
 	my $self = shift;
 	my ($node) = @_;
 	$node->{java_Holder} = "org.omg.CORBA.StringHolder";
-	$node->{java_init} = "null";
+	$node->{java_init} = "\"\"";
 	$node->{java_read} = "\$is.read_string ()";
 	$node->{java_write} = "\$os.write_string (";
 	if (exists $node->{max}) {
@@ -1338,11 +1305,11 @@ sub visitNameStringType {
 #	See	1.13	Mapping for Wide Strings
 #
 
-sub visitNameWideStringType {
+sub visitWideStringType {
 	my $self = shift;
 	my ($node) = @_;
 	$node->{java_Holder} = "org.omg.CORBA.StringHolder";
-	$node->{java_init} = "null";
+	$node->{java_init} = "\"\"";
 	$node->{java_read} = "\$is.read_wstring ()";
 	$node->{java_write} = "\$os.write_wstring (";
 	if (exists $node->{max}) {
@@ -1356,7 +1323,7 @@ sub visitNameWideStringType {
 #	See	1.14	Mapping for Fixed
 #
 
-sub visitNameFixedPtType {
+sub visitFixedPtType {
 	my $self = shift;
 	my ($node) = @_;
 	$node->{java_Holder} = "org.omg.CORBA.FixedHolder";
@@ -1366,34 +1333,16 @@ sub visitNameFixedPtType {
 	$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_fixed)";
 }
 
-sub visitNameFixedPtConstType {
-	my $self = shift;
-	my ($node) = @_;
-	$node->{java_Holder} = "org.omg.CORBA.FixedHolder";
-	$node->{java_init} = "null";
-	$node->{java_read} = "\$is.read_fixed ()";		# deprecated by CORBA 2.4
-	$node->{java_write} = "\$os.write_fixed (";		# deprecated by CORBA 2.4
-	$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_fixed)";
+sub visitFixedPtConstType {
+	shift->visitFixedPtType(@_);
 }
 
 #
 #	3.12	Exception Declaration
 #
 
-sub visitNameException {
-	my $self = shift;
-	my ($node) = @_;
-	return if (exists $node->{java_Helper});
-	$node->{java_Helper} = $node->{java_Name} . "Helper";
-	$node->{java_helper} = $node->{java_name};
-	$node->{java_Holder} = $node->{java_Name} . "Holder";
-	$node->{java_init} = "null";
-	$node->{java_read} = $node->{java_Helper} . ".read (\$is)";
-	$node->{java_write} = $node->{java_Helper} . ".write (\$os, ";
-	$node->{java_type_code} = $node->{java_Helper} . ".type ()";
-	foreach (@{$node->{list_value}}) {
-		$self->_get_defn($_)->visitName($self);		# single or array
-	}
+sub visitException {
+	shift->visitStructType(@_);
 }
 
 #
@@ -1402,22 +1351,85 @@ sub visitNameException {
 #	See	1.4		Inheritance and Operation Names
 #
 
-sub visitNameOperation {
+sub visitOperation {
 	my $self = shift;
 	my ($node) = @_;
-	$self->_get_defn($node->{type})->visitName($self);
+	if (exists $node->{type}) {			# initializer or factory or finder
+		my $type = $self->_get_defn($node->{type});
+		$type->visit($self);
+		while (	    $type->isa('TypeDeclarator')
+				and exists $type->{java_primitive} ) {
+			$type = $self->_get_defn($type->{type});
+		}
+		$node->{java_Type} = $type->{java_Name};
+	}
 	foreach (@{$node->{list_param}}) {
-		$_->visitName($self);			# parameter
+		$_->visit($self);			# parameter
+	}
+	$node->{java_params} = '';
+	my $first = 1;
+	foreach (@{$node->{list_param}}) {
+		$node->{java_params} .= ", " unless ($first);
+		$node->{java_params} .= $_->{java_Type};
+		$node->{java_params} .= " " . $_->{java_name};
+		$first = 0;
+	}
+	if (exists $node->{list_context}) {
+		$node->{java_params} .= ", " unless ($first);
+		$node->{java_params} .= "org.omg.CORBA.Context context";
+	}
+	$node->{java_proto} = '';
+	if (exists $node->{type}) {			# initializer or factory or finder
+		$node->{java_proto} = $node->{java_Type} . " ";
+	}
+	$node->{java_proto} .= $node->{java_name} . " (" . $node->{java_params} . ")";
+	if (exists $node->{list_raise}) {
+		$node->{java_proto} .= " throws ";
+		$first = 1;
+		foreach (@{$node->{list_raise}}) {		# exception
+			my $defn = $self->_get_defn($_);
+			$node->{java_proto} .= ", " unless ($first);
+			$node->{java_proto} .= $defn->{java_Name};
+			$first = 0;
+		}
+	}
+	$node->{java_call} = $node->{java_name} . " (";
+	$first = 1;
+	foreach (@{$node->{list_param}}) {
+		$node->{java_call} .= ", " unless ($first);
+		$node->{java_call} .= $_->{java_name};
+		$first = 0;
+	}
+	if (exists $node->{list_context}) {
+		$node->{java_call} .= ", " unless ($first);
+		$node->{java_call} .= "context";
+	}
+	$node->{java_call} .= ")";
+}
+
+sub visitParameter {
+	my $self = shift;
+	my($node) = @_;
+	my $type = $self->_get_defn($node->{type});
+	$type->visit($self);
+	if ($node->{attr} eq 'in') {
+		my $array = "";
+		while (	    $type->isa('TypeDeclarator')
+				and exists $type->{java_primitive} ) {
+			if (exists $type->{array_size}) {
+				foreach (@{$type->{array_size}}) {
+					$array .= "[]";
+				}
+			}
+			$type = $self->_get_defn($type->{type});
+		}
+		$node->{java_Type} = $type->{java_Name} . $array;
+	} else {
+		$node->{java_Type} = $type->{java_Holder};
 	}
 }
 
-sub visitNameParameter {
-	my $self = shift;
-	my($node) = @_;
-	$self->_get_defn($node->{type})->visitName($self);
-}
-
-sub visitNameVoidType {
+sub visitVoidType {
 	# empty
 }
 
@@ -1425,22 +1437,22 @@ sub visitNameVoidType {
 #	3.14	Attribute Declaration
 #
 
-sub visitNameAttribute {
+sub visitAttribute {
 	my $self = shift;
 	my ($node) = @_;
-	$node->{_get}->visitName($self);
-	$node->{_set}->visitName($self) if (exists $node->{_set});
+	$node->{_get}->visit($self);
+	$node->{_set}->visit($self) if (exists $node->{_set});
 }
 
 #
 #	3.15	Repository Identity Related Declarations
 #
 
-sub visitNameTypeId {
+sub visitTypeId {
 	# empty
 }
 
-sub visitNameTypePrefix {
+sub visitTypePrefix {
 	# empty
 }
 
@@ -1452,23 +1464,23 @@ sub visitNameTypePrefix {
 #	3.17	Component Declaration
 #
 
-sub visitNameProvides {
+sub visitProvides {
 	# empty
 }
 
-sub visitNameUses {
+sub visitUses {
 	# empty
 }
 
-sub visitNamePublishes {
+sub visitPublishes {
 	# empty
 }
 
-sub visitNameEmits {
+sub visitEmits {
 	# empty
 }
 
-sub visitNameConsumes {
+sub visitConsumes {
 	# empty
 }
 
@@ -1476,20 +1488,12 @@ sub visitNameConsumes {
 #	3.18	Home Declaration
 #
 
-sub visitNameFactory {
-	my $self = shift;
-	my ($node) = @_;
-	foreach (@{$node->{list_param}}) {
-		$_->visitName($self);			# parameter
-	}
+sub visitFactory {
+	shift->visitOperation(@_);
 }
 
-sub visitNameFinder {
-	my $self = shift;
-	my ($node) = @_;
-	foreach (@{$node->{list_param}}) {
-		$_->visitName($self);			# parameter
-	}
+sub visitFinder {
+	shift->visitOperation(@_);
 }
 
 1;
