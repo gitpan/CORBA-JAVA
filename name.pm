@@ -185,6 +185,23 @@ sub _get_Name {
 sub visitSpecification {
 	my $self = shift;
 	my ($node) = @_;
+	if (exists $node->{list_import}) {
+		foreach (@{$node->{list_import}}) {
+			$self->_get_defn($_)->visit($self);
+		}
+	}
+	foreach (@{$node->{list_decl}}) {
+		$self->_get_defn($_)->visit($self);
+	}
+}
+
+#
+#	3.6		Import Declaration
+#
+
+sub visitImport {
+	my $self = shift;
+	my ($node) = @_;
 	foreach (@{$node->{list_decl}}) {
 		$self->_get_defn($_)->visit($self);
 	}
@@ -836,8 +853,25 @@ sub _get_stub {
 sub visitSpecification {
 	my $self = shift;
 	my ($node) = @_;
+	if (exists $node->{list_import}) {
+		foreach (@{$node->{list_import}}) {
+			$self->_get_defn($_)->visit($self);
+		}
+	}
 	foreach (@{$node->{list_export}}) {
 		$self->{symbtab}->Lookup($_)->visit($self);
+	}
+}
+
+#
+#	3.6		Import Declaration
+#
+
+sub visitImport {
+	my $self = shift;
+	my ($node) = @_;
+	foreach (@{$node->{list_decl}}) {
+		$self->_get_defn($_)->visit($self);
 	}
 }
 
