@@ -1,5 +1,8 @@
 Revision history for Perl extension CORBA::JAVA.
 
+2.44  Wed Nov 10 18:30:00 2004
+	- add serialVersionUID
+
 2.43  Thu Jul 29 12:30:00 2004
 	- patch from Mike Castle (*nix platform)
 

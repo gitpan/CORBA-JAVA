@@ -9,12 +9,14 @@ use strict;
 package CORBA::JAVA::class;
 
 use vars qw($VERSION);
-$VERSION = '2.43';
+$VERSION = '2.44';
 
 package CORBA::JAVA::classVisitor;
 
-use POSIX qw(ctime);
+use Data::Dumper;
+use Digest::SHA1 qw(sha1_hex);
 use File::Path;
+use POSIX qw(ctime);
 
 # needs $node->{java_name} (JavaNameVisitor), $node->{java_literal} (JavaLiteralVisitor)
 
@@ -663,6 +665,9 @@ sub _value {
 	}
 	print $FH "\n";
 	print $FH "{\n";
+	my $uid = uc(substr(sha1_hex(Dumper($node)), 0, 16));
+	print $FH "  private static final long serialVersionUID = 0x",$uid,"L;\n";
+	print $FH "\n";
 	foreach (@{$node->{list_member}}) {
 		my $member = $self->_get_defn($_);
 		my $mod = ($member->{modifier} eq "private") ? "protected" : "public";
@@ -1102,6 +1107,9 @@ sub _boxed {		# primitive type
 	print $FH $self->_format_javadoc($node);
 	print $FH "public class ",$node->{java_name}," implements org.omg.CORBA.portable.ValueBase\n";
 	print $FH "{\n";
+	my $uid = uc(substr(sha1_hex(Dumper($node)), 0, 16));
+	print $FH "  private static final long serialVersionUID = 0x",$uid,"L;\n";
+	print $FH "\n";
 	print $FH "  public ",$type->{java_Name}," value;\n";
 	print $FH "\n";
 	print $FH "  public ",$node->{java_Name}," (",$type->{java_Name}," initial)\n";
@@ -1691,6 +1699,9 @@ sub _struct {
 	print $FH $self->_format_javadoc($node);
 	print $FH "public final class ",$node->{java_name}," implements org.omg.CORBA.portable.IDLEntity\n";
 	print $FH "{\n";
+	my $uid = uc(substr(sha1_hex(Dumper($node)), 0, 16));
+	print $FH "  private static final long serialVersionUID = 0x",$uid,"L;\n";
+	print $FH "\n";
 	foreach (@{$node->{list_member}}) {
 		my $member = $self->_get_defn($_);
 		print $FH $self->_format_javadoc($member);
@@ -2284,6 +2295,9 @@ sub _union {
 	print $FH $self->_format_javadoc($node);
 	print $FH "public final class ",$node->{java_name}," implements org.omg.CORBA.portable.IDLEntity\n";
 	print $FH "{\n";
+	my $uid = uc(substr(sha1_hex(Dumper($node)), 0, 16));
+	print $FH "  private static final long serialVersionUID = 0x",$uid,"L;\n";
+	print $FH "\n";
 	print $FH "  private java.lang.Object __object;\n";
 	print $FH "  private ",$dis->{java_Name}," __discriminator;\n";
 	print $FH "  private boolean __uninitialized;\n";
@@ -2653,6 +2667,9 @@ sub _enum {
 	print $FH $self->_format_javadoc($node);
 	print $FH "public class ",$node->{java_name}," implements org.omg.CORBA.portable.IDLEntity\n";
 	print $FH "{\n";
+	my $uid = uc(substr(sha1_hex(Dumper($node)), 0, 16));
+	print $FH "  private static final long serialVersionUID = 0x",$uid,"L;\n";
+	print $FH "\n";
 	print $FH "  private        int __value;\n";
 	print $FH "\n";
 	foreach (@{$node->{list_expr}}) {
