@@ -2,7 +2,15 @@ Changes
 class.pm
 literal.pm
 name.pm
+xml.pm
 idl2java.pl
+idl2javaxml.pl
+XMLInputStream.java
+XMLOutputStream.java
+XMLInputStreamImpl.java
+XMLOutputStreamImpl.java
+PYXInputStreamImpl.java
+PYXOutputStreamImpl.java
 MANIFEST
 Makefile.PL
 test.pl

@@ -9,7 +9,7 @@ use strict;
 package CORBA::JAVA::class;
 
 use vars qw($VERSION);
-$VERSION = '2.41';
+$VERSION = '2.42';
 
 package CORBA::JAVA::classVisitor;
 

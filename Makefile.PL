@@ -12,8 +12,9 @@ WriteMakefile(
                         'class.pm'      => '$(INST_LIBDIR)/JAVA/class.pm',
                         'literal.pm'    => '$(INST_LIBDIR)/JAVA/literal.pm',
                         'name.pm'       => '$(INST_LIBDIR)/JAVA/name.pm',
+                        'xml.pm'        => '$(INST_LIBDIR)/JAVA/xml.pm',
     },
-    'EXE_FILES'     => ['idl2java.pl'],
+    'EXE_FILES'     => ['idl2java.pl', 'idl2javaxml.pl'],
     'AUTHOR'        => "Francois PERRAD (francois.perrad\@gadz.org)",
     'dist'          => {
                         'COMPRESS'      => 'gzip',

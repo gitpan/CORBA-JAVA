@@ -1,5 +1,9 @@
 Revision history for Perl extension CORBA::JAVA.
 
+2.42  Mon Jul 19 08:30:00 2004
+	- add XML binding : script idl2javaxml.pl, xml.pm 
+            and Java class run-time support for XML
+
 2.41  Mon Jun  7 08:30:00 2004
 	- better support of 'import'
 
