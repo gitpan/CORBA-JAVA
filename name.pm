@@ -1784,6 +1784,7 @@ sub visitStructType {
 	foreach (@{$node->{list_member}}) {
 		my $defn = $self->_get_defn($_); 
 		$uid->{$defn->{java_name}} = $defn->{java_type};
+		$self->_get_defn($defn->{type})->visit($self);
 	}
 	$node->{java_uid} = $self->_get_uid($uid);
 }
@@ -1799,16 +1800,24 @@ sub visitUnionType {
 	my $uid = {};
 	$uid->{_d} = $self->_get_defn($node->{type})->{java_type};         
 	foreach (@{$node->{list_expr}}) {
-		my $type = $self->_get_defn($_->{element});
+		my $elt = $self->_get_defn($_->{element});
+		$elt->visit($self);
 		foreach my $label (@{$_->{list_label}}) {
 			if (ref $label eq 'Default') {
-				$uid->{default} = $type->{java_Name};
+				$uid->{default} = $elt->{java_Name};
 			} else {
-				$uid->{$label->{java_literal}} = $type->{java_Name};
+				$uid->{$label->{java_literal}} = $elt->{java_Name};
 			}
 		}
 	}
 	$node->{java_uid} = $self->_get_uid($uid);
+}
+
+sub visitElement {
+	my $self = shift;
+	my ($node) = @_;
+	my $member = $self->_get_defn($node->{value});
+	$self->_get_defn($member->{type})->visit($self);
 }
 
 #	3.11.2.4	Enumerations

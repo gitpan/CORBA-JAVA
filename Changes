@@ -1,5 +1,9 @@
 Revision history for Perl extension CORBA::JAVA.
 
+2.46  Sun Apr  3 20:30:00 2005
+	- name.pm : inner uid
+	- class.pm : BooleanLiteral
+
 2.45  Fri Dec 24 12:30:00 2004
 	- (jdk1.5)
 	- add a specific visitor for serialVersionUID

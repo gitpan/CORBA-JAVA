@@ -9,7 +9,7 @@ use strict;
 package CORBA::JAVA::class;
 
 use vars qw($VERSION);
-$VERSION = '2.45';
+$VERSION = '2.46';
 
 package CORBA::JAVA::classVisitor;
 
@@ -2236,7 +2236,8 @@ sub _union_helper {
 				print $FH "      default:\n";
 			} else {
 				if ($dis->isa('BooleanType')) {
-					print $FH "      case ",$_->{value},":\n";
+					my $value = ($_->{value} eq 'TRUE') ? "1" : "0";
+					print $FH "      case ",$value,":\n";
 				} else {
 					print $FH "      case ",$_->{java_literal},":\n";
 				}
@@ -2279,7 +2280,8 @@ sub _union_helper {
 				print $FH "      default:\n";
 			} else {
 				if ($dis->isa('BooleanType')) {
-					print $FH "      case ",$_->{value},":\n";
+					my $value = ($_->{value} eq 'TRUE') ? "1" : "0";
+					print $FH "      case ",$value,":\n";
 				} else {
 					print $FH "      case ",$_->{java_literal},":\n";
 				}
@@ -2490,7 +2492,8 @@ sub _union {
 		foreach my $case (@{$node->{list_expr}}) {
 			foreach (@{$case->{list_label}}) {	# expression
 				if ($dis->isa('BooleanType')) {
-					print $FH "      case ",$_->{value},":\n";
+					my $value = ($_->{value} eq 'TRUE') ? "1" : "0";
+					print $FH "      case ",$value,":\n";
 				} else {
 					print $FH "      case ",$_->{java_literal},":\n";
 				}
@@ -2526,7 +2529,8 @@ sub _union {
 					print $FH "      default:\n";
 				} else {
 					if ($dis->isa('BooleanType')) {
-						print $FH "      case ",$_->{value},":\n";
+						my $value = ($_->{value} eq 'TRUE') ? "1" : "0";
+						print $FH "      case ",$value,":\n";
 					} else {
 						print $FH "      case ",$_->{java_literal},":\n";
 					}
