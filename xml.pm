@@ -4,7 +4,7 @@ use strict;
 #			Interface Definition Language (OMG IDL CORBA v3.0)
 #
 
-use CORBA::Java::class;
+use CORBA::JAVA::class;
 
 package CORBA::JAVA::XMLclassVisitor;
 
@@ -824,7 +824,7 @@ sub _exception_helperXML {
 
 package CORBA::JAVA::nameXmlVisitor;
 
-use CORBA::Java::name;
+use CORBA::JAVA::name;
 
 @CORBA::JAVA::nameXmlVisitor::ISA = qw(CORBA::JAVA::name2Visitor);
 

@@ -5,9 +5,9 @@ use CORBA::IDL::parser30;
 use CORBA::IDL::symbtab;
 # visitors
 use CORBA::IDL::repos_id;
-use CORBA::Java::name;
-use CORBA::Java::literal;
-use CORBA::Java::class;
+use CORBA::JAVA::name;
+use CORBA::JAVA::literal;
+use CORBA::JAVA::class;
 
 my $parser = new Parser;
 $parser->YYData->{verbose_error} = 1;		# 0, 1
