@@ -153,7 +153,29 @@ sub visitExpression {
 	my $self = shift;
 	my ($node) = @_;
 	my @list_expr = @{$node->{list_expr}};		# create a copy
-	$node->{$self->{key}} = $self->_Eval(\@list_expr, $node->{type});
+	my $type = $node->{type};
+	my $str = $self->_Eval(\@list_expr, $type);
+	my $cast = "";
+	if (ref $type and $type->isa('IntegerType')) {
+		if      ($type->{value} eq 'short') {
+			$cast = "(short)";
+		} elsif ($type->{value} eq 'unsigned short') {
+			$cast = "(short)";
+		} elsif ($type->{value} eq 'long') {
+			# empty
+		} elsif ($type->{value} eq 'unsigned long') {
+			# empty
+		} elsif ($type->{value} eq 'long long') {
+			$cast = "(long)";
+		} elsif ($type->{value} eq 'unsigned long long') {
+			$cast = "(long)";
+		} elsif ($type->{value} eq 'octet') {
+			$cast = "(byte)";
+		} else {
+			warn __PACKAGE__,"::visitExpression $type->{value}.\n";
+		}
+	}
+	$node->{$self->{key}} = $cast . $str;
 }
 
 sub visitIntegerLiteral {
@@ -161,25 +183,7 @@ sub visitIntegerLiteral {
 	my ($node, $type) = @_;
 	my $str = $node->{value};
 	$str =~ s/^\+//;
-	my $cast = "";
-	if      ($type->{value} eq 'short') {
-		$cast = "(short)";
-	} elsif ($type->{value} eq 'unsigned short') {
-		$cast = "(short)";
-	} elsif ($type->{value} eq 'long') {
-		# empty
-	} elsif ($type->{value} eq 'unsigned long') {
-		# empty
-	} elsif ($type->{value} eq 'long long') {
-		$cast = "(long)";
-	} elsif ($type->{value} eq 'unsigned long long') {
-		$cast = "(long)";
-	} elsif ($type->{value} eq 'octet') {
-		$cast = "(byte)";
-	} else {
-		warn __PACKAGE__,"::visitIntegerLiteral $type->{value}.\n";
-	}
-	$node->{$self->{key}} = $cast . $str;
+	$node->{$self->{key}} = $str;
 }
 
 sub visitStringLiteral {

@@ -9,7 +9,7 @@ use strict;
 package CORBA::JAVA::class;
 
 use vars qw($VERSION);
-$VERSION = '2.21';
+$VERSION = '2.22';
 
 package CORBA::JAVA::classVisitor;
 
@@ -1728,15 +1728,13 @@ sub _struct {
 		foreach (@{$node->{list_member}}) {
 			my $member = $self->_get_defn($_);
 			if ($first) {
-				print $FH "    _ret.append (\"\\n\");\n";
 				$first = 0;
 			} else {
-				print $FH "    _ret.append (\",\\n\");\n";
+				print $FH "    _ret.append (\",\");\n";
 			}
 			$self->_member_toString($member, $node, \$idx);
 		}
-		print $FH "    _ret.append (\"\\n\");\n";
-		print $FH "    _ret.append (\"}\");\n";
+		print $FH "    _ret.append (\"\\n}\");\n";
 		print $FH "    return _ret.toString ();\n";
 		print $FH "  }\n";
 		print $FH "\n";
@@ -1882,18 +1880,21 @@ sub _member_helper_read {
 		$type = $self->_get_defn($type->{type});
 	}
 	if ($parent->isa('UnionType')) {
-		print $FH @tab,"  ",$member->{java_type}," _",$member->{java_name}," = ",$member->{java_init},";\n";
+		print $FH @tab,$member->{java_type}," _",$member->{java_name}," = ",$member->{java_init},";\n";
 	}
 	if (exists $member->{array_size}) {
+		my $java_array = $member->{java_array};
 		foreach (@{$member->{array_size}}) {
-			pop @array1;
+			$java_array =~ s/^\[\]/\[$_->{java_literal}\]/;
 			if ($parent->isa('UnionType')) {
-				print $FH @tab,"_",$name,$idx," = new ",$type->{java_Name}," [",$_->{java_literal},"]",@array1,";\n";
+				print $FH @tab,"_",$name,$idx," = new ",$member->{type_java}->{java_Name}," ",$java_array,";\n";
 			} else {	# StructType or ExceptionType
-				print $FH @tab,$label,$name,$idx," = new ",$type->{java_Name}," [",$_->{java_literal},"]",@array1,";\n";
+				print $FH @tab,$label,$name,$idx," = new ",$member->{type_java}->{java_Name}," ",$java_array,";\n";
 			}
 			print $FH @tab,"for (int _o",$$r_idx," = 0; _o",$$r_idx," < (",$_->{java_literal},"); _o",$$r_idx,"++)\n";
 			print $FH @tab,"{\n";
+			$java_array =~ s/^\[[^\]]+\]//;
+			pop @array1;
 			$idx .= "[_o" . $$r_idx . "]";
 			$$r_idx ++;
 			push @tab, "  ";
@@ -2013,7 +2014,7 @@ sub _member_toString {
 	my $len = ($parent->isa('UnionType')) ? " ()" : "";
 	my @tab = ("    ");
 	push @tab, "    " if ($parent->isa('UnionType'));
-	print $FH @tab,"_ret.append (\"",$member->{java_type}," ",$member->{java_name},"=\");\n";
+	print $FH @tab,"_ret.append (\"\\n",$member->{java_type}," ",$member->{java_name},"=\");\n";
 	my $idx = '';
 	foreach (my $a = 0; $a < length($member->{java_array})/2; $a ++) {
 		print $FH @tab,"_ret.append (\"{\");\n";
@@ -2025,6 +2026,9 @@ sub _member_toString {
 		print $FH @tab,"{\n";
 		print $FH @tab,"  for (int _i",$$r_idx," = 0; _i",$$r_idx," < ",$label,$name,$len,$idx,".length; _i",$$r_idx,"++)\n";
 		print $FH @tab,"  {\n";
+		unless ($member->{type_java}->isa("BasicType")) {
+			print $FH @tab,"    _ret.append (\"\\n\");\n";
+		}
 		$idx .= "[_i" . $$r_idx . "]";
 		$$r_idx ++;
 		push @tab, "    ";
@@ -2052,8 +2056,11 @@ sub _member_toString {
 		print $FH @tab,"      _ret.append (\",\");\n";
 		print $FH @tab,"    }\n";
 		print $FH @tab,"  }\n";
+		unless ($member->{type_java}->isa("BasicType")) {
+			print $FH @tab,"  _ret.append (\"\\n\");\n";
+		}
+		print $FH @tab,"  _ret.append (\"}\");\n";
 		print $FH @tab,"}\n";
-		print $FH @tab,"_ret.append (\"}\");\n";
 	}
 }
 
@@ -2470,7 +2477,6 @@ sub _union {
 		print $FH "  public java.lang.String toString ()\n";
 		print $FH "  {\n";
 		print $FH "    java.lang.StringBuffer _ret = new java.lang.StringBuffer (\"union ",$node->{java_name}," {\");\n";
-		print $FH "    _ret.append (\"\\n\");\n";
 		if      ($dis->isa('EnumType')) {
 			print $FH "    switch (discriminator ().value ())\n";
 		} elsif ($dis->isa('BooleanType')) {
@@ -2501,8 +2507,7 @@ sub _union {
 			print $FH "      }\n";
 		}
 		print $FH "    }\n";
-		print $FH "    _ret.append (\"\\n\");\n";
-		print $FH "    _ret.append (\"}\");\n";
+		print $FH "    _ret.append (\"\\n}\");\n";
 		print $FH "    return _ret.toString ();\n";
 		print $FH "  }\n";
 		print $FH "\n";
@@ -2884,10 +2889,9 @@ sub _exception {
 			foreach (@{$node->{list_member}}) {
 				my $member = $self->_get_defn($_);
 				if ($first) {
-					print $FH "    _ret.append (\"\\n\");\n";
 					$first = 0;
 				} else {
-					print $FH "    _ret.append (\",\\n\");\n";
+					print $FH "    _ret.append (\",\");\n";
 				}
 				$self->_member_toString($member, $node, \$idx);
 			}
