@@ -9,7 +9,7 @@ use strict;
 package CORBA::JAVA::class;
 
 use vars qw($VERSION);
-$VERSION = '2.44';
+$VERSION = '2.45';
 
 package CORBA::JAVA::classVisitor;
 
@@ -435,6 +435,8 @@ sub _interface_stub {
 	my $FH = $self->{out};
 	print $FH "public class _",$node->{java_name},"Stub extends org.omg.CORBA.portable.ObjectImpl implements ",$node->{java_Name},"\n";
 	print $FH "{\n";
+	print $FH "  private static final long serialVersionUID = 0x",$node->{java_uid},"L;\n";
+	print $FH "\n";
 	print $FH "\n";
 	print $FH $self->{stub};
 	print $FH "  // Type-specific CORBA::Object operations\n";
@@ -665,8 +667,7 @@ sub _value {
 	}
 	print $FH "\n";
 	print $FH "{\n";
-	my $uid = uc(substr(sha1_hex(Dumper($node)), 0, 16));
-	print $FH "  private static final long serialVersionUID = 0x",$uid,"L;\n";
+	print $FH "  private static final long serialVersionUID = 0x",$node->{java_uid},"L;\n";
 	print $FH "\n";
 	foreach (@{$node->{list_member}}) {
 		my $member = $self->_get_defn($_);
@@ -762,6 +763,12 @@ sub _value {
 			}
 			print $FH "    }\n";
 			print $FH "    return false;\n";
+			print $FH "  }\n";
+			print $FH "\n";
+			print $FH "  public int hashCode ()\n";
+			print $FH "  {\n";
+			print $FH "    // this method returns always the same value, to force equals() to be called.\n";
+			print $FH "    return 0;\n";
 			print $FH "  }\n";
 			print $FH "\n";
 		}
@@ -1107,8 +1114,7 @@ sub _boxed {		# primitive type
 	print $FH $self->_format_javadoc($node);
 	print $FH "public class ",$node->{java_name}," implements org.omg.CORBA.portable.ValueBase\n";
 	print $FH "{\n";
-	my $uid = uc(substr(sha1_hex(Dumper($node)), 0, 16));
-	print $FH "  private static final long serialVersionUID = 0x",$uid,"L;\n";
+	print $FH "  private static final long serialVersionUID = 0x",$node->{java_uid},"L;\n";
 	print $FH "\n";
 	print $FH "  public ",$type->{java_Name}," value;\n";
 	print $FH "\n";
@@ -1150,6 +1156,12 @@ sub _boxed {		# primitive type
 		print $FH "      return (this.value == obj.value);\n";
 		print $FH "    }\n";
 		print $FH "    return false;\n";
+		print $FH "  }\n";
+		print $FH "\n";
+		print $FH "  public int hashCode ()\n";
+		print $FH "  {\n";
+		print $FH "    // this method returns always the same value, to force equals() to be called.\n";
+		print $FH "    return 0;\n";
 		print $FH "  }\n";
 		print $FH "\n";
 	}
@@ -1699,8 +1711,7 @@ sub _struct {
 	print $FH $self->_format_javadoc($node);
 	print $FH "public final class ",$node->{java_name}," implements org.omg.CORBA.portable.IDLEntity\n";
 	print $FH "{\n";
-	my $uid = uc(substr(sha1_hex(Dumper($node)), 0, 16));
-	print $FH "  private static final long serialVersionUID = 0x",$uid,"L;\n";
+	print $FH "  private static final long serialVersionUID = 0x",$node->{java_uid},"L;\n";
 	print $FH "\n";
 	foreach (@{$node->{list_member}}) {
 		my $member = $self->_get_defn($_);
@@ -1776,6 +1787,12 @@ sub _struct {
 		print $FH "      return res;\n";
 		print $FH "    }\n";
 		print $FH "    return false;\n";
+		print $FH "  }\n";
+		print $FH "\n";
+		print $FH "  public int hashCode ()\n";
+		print $FH "  {\n";
+		print $FH "    // this method returns always the same value, to force equals() to be called.\n";
+		print $FH "    return 0;\n";
 		print $FH "  }\n";
 		print $FH "\n";
 	}
@@ -2101,8 +2118,7 @@ sub _member_equals {
 			or $member->{type_java}->isa("UnionType")
 			or $member->{type_java}->isa("Interface")
 			or $member->{type_java}->isa("Value") ) {
-		print $FH @tab,"res = (this.",$label,$name,$idx," == obj.",$label,$name,$idx,") ||\n";
-		print $FH @tab," (this.",$label,$name,$idx," != null && obj.",$label,$name,$idx," != null && this.",$member->{java_name},".equals(obj.",$label,$name,$idx,"));\n";
+		print $FH @tab,"res = (this.",$label,$name,$idx," == null && obj.",$label,$name,$idx," == null) || (this.",$label,$name,$idx," != null && this.",$member->{java_name},".equals(obj.",$label,$name,$idx,"));\n";
 	} else {
 		print $FH @tab,"res = (this.",$label,$name,$idx," == obj.",$label,$name,$idx,");\n";
 	}
@@ -2295,8 +2311,7 @@ sub _union {
 	print $FH $self->_format_javadoc($node);
 	print $FH "public final class ",$node->{java_name}," implements org.omg.CORBA.portable.IDLEntity\n";
 	print $FH "{\n";
-	my $uid = uc(substr(sha1_hex(Dumper($node)), 0, 16));
-	print $FH "  private static final long serialVersionUID = 0x",$uid,"L;\n";
+	print $FH "  private static final long serialVersionUID = 0x",$node->{java_uid},"L;\n";
 	print $FH "\n";
 	print $FH "  private java.lang.Object __object;\n";
 	print $FH "  private ",$dis->{java_Name}," __discriminator;\n";
@@ -2546,6 +2561,13 @@ sub _union {
 		print $FH "    }\n";
 		print $FH "    return false;\n";
 		print $FH "  }\n";
+		print $FH "\n";
+		print $FH "  public int hashCode ()\n";
+		print $FH "  {\n";
+		print $FH "    // this method returns always the same value, to force equals() to be called.\n";
+		print $FH "    return 0;\n";
+		print $FH "  }\n";
+		print $FH "\n";
 	}
 	print $FH "} // class ",$node->{java_name},"\n";
 	close $FH;
@@ -2667,8 +2689,7 @@ sub _enum {
 	print $FH $self->_format_javadoc($node);
 	print $FH "public class ",$node->{java_name}," implements org.omg.CORBA.portable.IDLEntity\n";
 	print $FH "{\n";
-	my $uid = uc(substr(sha1_hex(Dumper($node)), 0, 16));
-	print $FH "  private static final long serialVersionUID = 0x",$uid,"L;\n";
+	print $FH "  private static final long serialVersionUID = 0x",$node->{java_uid},"L;\n";
 	print $FH "\n";
 	print $FH "  private        int __value;\n";
 	print $FH "\n";
@@ -2729,6 +2750,12 @@ sub _enum {
 		print $FH "    if (o instanceof ",$node->{java_name},")\n";
 		print $FH "      return (this.__value == ((",$node->{java_name},")o).__value);\n";
 		print $FH "    return false;\n";
+		print $FH "  }\n";
+		print $FH "\n";
+		print $FH "  public int hashCode ()\n";
+		print $FH "  {\n";
+		print $FH "    // this method returns always the same value, to force equals() to be called.\n";
+		print $FH "    return 0;\n";
 		print $FH "  }\n";
 		print $FH "\n";
 	}
@@ -2845,6 +2872,8 @@ sub _exception {
 	print $FH $self->_format_javadoc($node);
 	print $FH "public final class ",$node->{java_name}," extends org.omg.CORBA.UserException\n";
 	print $FH "{\n";
+	print $FH "  private static final long serialVersionUID = 0x",$node->{java_uid},"L;\n";
+	print $FH "\n";
 	foreach (@{$node->{list_member}}) {
 		my $member = $self->_get_defn($_);
 		print $FH $self->_format_javadoc($member);
@@ -2945,6 +2974,12 @@ sub _exception {
 		print $FH "      return res;\n";
 		print $FH "    }\n";
 		print $FH "    return false;\n";
+		print $FH "  }\n";
+		print $FH "\n";
+		print $FH "  public int hashCode ()\n";
+		print $FH "  {\n";
+		print $FH "    // this method returns always the same value, to force equals() to be called.\n";
+		print $FH "    return 0;\n";
 		print $FH "  }\n";
 		print $FH "\n";
 	}

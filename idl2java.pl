@@ -73,6 +73,7 @@ if (        exists $parser->YYData->{root}
 	$parser->YYData->{root}->visit(new CORBA::JAVA::nameVisitor($parser, $parser->YYData->{opt_p}, $parser->YYData->{opt_t}));
 	$parser->YYData->{root}->visit(new CORBA::JAVA::literalVisitor($parser));
 	$parser->YYData->{root}->visit(new CORBA::JAVA::name2Visitor($parser));
+	$parser->YYData->{root}->visit(new CORBA::JAVA::uidVisitor($parser));
 	$parser->YYData->{root}->visit(new CORBA::JAVA::classVisitor($parser));
 }
 

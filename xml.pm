@@ -847,6 +847,20 @@ sub visitBaseInterface {
 #	3.9		Value Declaration
 #
 
+sub visitValue {
+	my $self = shift;
+	my ($node) = @_;
+	return if (exists $node->{java_read_xml});
+	$node->{java_read_xml} = $node->{java_Helper} . "XML.read (\$is, ";
+	$node->{java_write_xml} = $node->{java_Helper} . "XML.write (\$os, ";
+	foreach (@{$node->{list_export}}) {
+		$self->{symbtab}->Lookup($_)->visit($self);
+	}
+	foreach (@{$node->{list_member}}) {
+		$self->_get_defn($_)->visit($self);
+	}
+}
+
 sub visitBoxedValue {
 	my $self = shift;
 	my ($node) = @_;
