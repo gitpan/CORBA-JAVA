@@ -1,5 +1,8 @@
 Revision history for Perl extension CORBA::JAVA.
 
+2.40  Tue May 18 18:30:00 2004
+	- compatible with CORBA::IDL 2.40
+
 2.22  Wed Mar 31 12:30:00 2004
 	- improvement of toString() method
 	- literal.pm : move (cast) from IntegerLiteral to Expression

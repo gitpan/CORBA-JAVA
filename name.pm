@@ -340,53 +340,55 @@ sub visitTypeDeclarators {
 sub visitTypeDeclarator {
 	my $self = shift;
 	my ($node) = @_;
-	if (exists $node->{modifier}) {		# native
+	return if (exists $node->{java_package});
+	my $type = $self->_get_defn($node->{type});
+	$type->visit($self);
+	if (	   $type->isa('BasicType')
+			or $type->isa('StringType')
+			or $type->isa('WideStringType')
+			or $type->isa('FixedPtType') ) {
+		$node->{java_primitive} = 1;
+	} else {
+		$node->{java_primitive} = 1 if (exists $type->{java_primitive});
+	}
+	if (exists $node->{array_size}) {
 		$node->{java_package} = $self->_get_pkg($node);
 		$node->{java_name} = $self->_get_name($node);
 		$node->{java_Name} = $self->_get_Name($node);
 	} else {
-		return if (exists $node->{java_package});
-		my $type = $self->_get_defn($node->{type});
-		$type->visit($self);
-		if (	   $type->isa('BasicType')
-				or $type->isa('StringType')
-				or $type->isa('WideStringType')
-				or $type->isa('FixedPtType') ) {
-			$node->{java_primitive} = 1;
-		} else {
-			$node->{java_primitive} = 1 if (exists $type->{java_primitive});
-		}
-		if (exists $node->{array_size}) {
-			$node->{java_package} = $self->_get_pkg($node);
-			$node->{java_name} = $self->_get_name($node);
-			$node->{java_Name} = $self->_get_Name($node);
-		} else {
-			if ($type->isa('SequenceType')) {
-				$type->{repos_id} = $node->{repos_id};
+		if ($type->isa('SequenceType')) {
+			$type->{repos_id} = $node->{repos_id};
+			$type = $self->_get_defn($type->{type});
+			$node->{java_name} = $type->{java_name} . "[]";
+			while ($type->isa('SequenceType')) {
+				$node->{java_name} .= "[]";
 				$type = $self->_get_defn($type->{type});
-				$node->{java_name} = $type->{java_name} . "[]";
-				while ($type->isa('SequenceType')) {
-					$node->{java_name} .= "[]";
-					$type = $self->_get_defn($type->{type});
-				}
-				$node->{java_Name} = $self->_get_Name($node, $type->{java_package});
+			}
+			$node->{java_Name} = $self->_get_Name($node, $type->{java_package});
+			$node->{java_package} = $self->_get_pkg($node);
+		} else {
+			if (	   $type->isa('BasicType')
+					or $type->isa('StringType')
+					or $type->isa('WideStringType')
+					or $type->isa('FixedPtType') ) {
+				$node->{java_name} = $type->{java_name};
+				$node->{java_Name} = $type->{java_Name};
 				$node->{java_package} = $self->_get_pkg($node);
 			} else {
-				if (	   $type->isa('BasicType')
-						or $type->isa('StringType')
-						or $type->isa('WideStringType')
-						or $type->isa('FixedPtType') ) {
-					$node->{java_name} = $type->{java_name};
-					$node->{java_Name} = $type->{java_Name};
-					$node->{java_package} = $self->_get_pkg($node);
-				} else {
-					$node->{java_package} = $self->_get_pkg($node);
-					$node->{java_name} = $self->_get_name($node);
-					$node->{java_Name} = $self->_get_Name($node);
-				}
+				$node->{java_package} = $self->_get_pkg($node);
+				$node->{java_name} = $self->_get_name($node);
+				$node->{java_Name} = $self->_get_Name($node);
 			}
 		}
 	}
+}
+
+sub visitNativeType {
+	my $self = shift;
+	my ($node) = @_;
+	$node->{java_package} = $self->_get_pkg($node);
+	$node->{java_name} = $self->_get_name($node);
+	$node->{java_Name} = $self->_get_Name($node);
 }
 
 #
@@ -395,85 +397,106 @@ sub visitTypeDeclarator {
 #	See	1.4		Mapping for Basic Data Types
 #
 
-sub visitBasicType {
+sub visitIntegerType {
 	my $self = shift;
 	my ($node) = @_;
-	if      ($node->isa('FloatingPtType')) {
-		if      ($node->{value} eq 'float') {
-			$node->{java_package} = "";
-			$node->{java_name} = "float";
-			$node->{java_Name} = "float";
-		} elsif ($node->{value} eq 'double') {
-			$node->{java_package} = "";
-			$node->{java_name} = "double";
-			$node->{java_Name} = "double";
-		} elsif ($node->{value} eq 'long double') {
-			warn __PACKAGE__," 'long double' not available at this time for Java.\n";
-			$node->{java_package} = "";
-			$node->{java_name} = "double";
-			$node->{java_Name} = "double";
-		} else {
-			warn __PACKAGE__,"::visitBasicType (FloatingType) $node->{value}.\n";
-		}
-	} elsif ($node->isa('IntegerType')) {
-		if      ($node->{value} eq 'short') {
-			$node->{java_package} = "";
-			$node->{java_name} = "short";
-			$node->{java_Name} = "short";
-		} elsif ($node->{value} eq 'unsigned short') {
-			$node->{java_package} = "";
-			$node->{java_name} = "short";
-			$node->{java_Name} = "short";
-		} elsif ($node->{value} eq 'long') {
-			$node->{java_package} = "";
-			$node->{java_name} = "int";
-			$node->{java_Name} = "int";
-		} elsif ($node->{value} eq 'unsigned long') {
-			$node->{java_package} = "";
-			$node->{java_name} = "int";
-			$node->{java_Name} = "int";
-		} elsif ($node->{value} eq 'long long') {
-			$node->{java_package} = "";
-			$node->{java_name} = "long";
-			$node->{java_Name} = "long";
-		} elsif ($node->{value} eq 'unsigned long long') {
-			$node->{java_package} = "";
-			$node->{java_name} = "long";
-			$node->{java_Name} = "long";
-		} else {
-			warn __PACKAGE__,"::visitBasicType (IntegerType) $node->{value}.\n";
-		}
-	} elsif ($node->isa('CharType')) {
-		$node->{java_package} = "";
-		$node->{java_name} = "char";
-		$node->{java_Name} = "char";
-	} elsif ($node->isa('WideCharType')) {
-		$node->{java_package} = "";
-		$node->{java_name} = "char";
-		$node->{java_Name} = "char";
-	} elsif ($node->isa('BooleanType')) {
-		$node->{java_package} = "";
-		$node->{java_name} = "boolean";
-		$node->{java_Name} = "boolean";
-	} elsif ($node->isa('OctetType')) {
-		$node->{java_package} = "";
-		$node->{java_name} = "byte";
-		$node->{java_Name} = "byte";
-	} elsif ($node->isa('AnyType')) {
-		$node->{java_package} = "org.omg.CORBA";
-		$node->{java_name} = "Any";
-		$node->{java_Name} = "org.omg.CORBA.Any";
-	} elsif ($node->isa('ObjectType')) {
-		$node->{java_package} = "org.omg.CORBA";
-		$node->{java_name} = "Object";
-		$node->{java_Name} = "org.omg.CORBA.Object";
-	} elsif ($node->isa('ValueBaseType')) {
-		$node->{java_package} = "java.io";
-		$node->{java_name} = "Serializable";
-		$node->{java_Name} = "java.io.Serializable";
+	$node->{java_package} = "";
+	if      ($node->{value} eq 'short') {
+		$node->{java_name} = "short";
+		$node->{java_Name} = "short";
+	} elsif ($node->{value} eq 'unsigned short') {
+		$node->{java_name} = "short";
+		$node->{java_Name} = "short";
+	} elsif ($node->{value} eq 'long') {
+		$node->{java_name} = "int";
+		$node->{java_Name} = "int";
+	} elsif ($node->{value} eq 'unsigned long') {
+		$node->{java_name} = "int";
+		$node->{java_Name} = "int";
+	} elsif ($node->{value} eq 'long long') {
+		$node->{java_name} = "long";
+		$node->{java_Name} = "long";
+	} elsif ($node->{value} eq 'unsigned long long') {
+		$node->{java_name} = "long";
+		$node->{java_Name} = "long";
 	} else {
-		warn __PACKAGE__,"::visitBasicType INTERNAL ERROR (",ref $node,").\n";
+		warn __PACKAGE__,"::visitIntegerType $node->{value}.\n";
 	}
+}
+
+sub visitFloatingPtType {
+	my $self = shift;
+	my ($node) = @_;
+	$node->{java_package} = "";
+	if      ($node->{value} eq 'float') {
+		$node->{java_name} = "float";
+		$node->{java_Name} = "float";
+	} elsif ($node->{value} eq 'double') {
+		$node->{java_name} = "double";
+		$node->{java_Name} = "double";
+	} elsif ($node->{value} eq 'long double') {
+		warn __PACKAGE__," 'long double' not available at this time for Java.\n";
+		$node->{java_name} = "double";
+		$node->{java_Name} = "double";
+	} else {
+		warn __PACKAGE__,"::visitFloatingPtType $node->{value}.\n";
+	}
+}
+
+sub visitCharType {
+	my $self = shift;
+	my ($node) = @_;
+	$node->{java_package} = "";
+	$node->{java_name} = "char";
+	$node->{java_Name} = "char";
+}
+
+sub visitWideCharType {
+	my $self = shift;
+	my ($node) = @_;
+	$node->{java_package} = "";
+	$node->{java_name} = "char";
+	$node->{java_Name} = "char";
+}
+
+sub visitBooleanType {
+	my $self = shift;
+	my ($node) = @_;
+	$node->{java_package} = "";
+	$node->{java_name} = "boolean";
+	$node->{java_Name} = "boolean";
+}
+
+sub visitOctetType {
+	my $self = shift;
+	my ($node) = @_;
+	$node->{java_package} = "";
+	$node->{java_name} = "byte";
+	$node->{java_Name} = "byte";
+}
+
+sub visitAnyType {
+	my $self = shift;
+	my ($node) = @_;
+	$node->{java_package} = "org.omg.CORBA";
+	$node->{java_name} = "Any";
+	$node->{java_Name} = "org.omg.CORBA.Any";
+}
+
+sub visitObjectType {
+	my $self = shift;
+	my ($node) = @_;
+	$node->{java_package} = "org.omg.CORBA";
+	$node->{java_name} = "Object";
+	$node->{java_Name} = "org.omg.CORBA.Object";
+}
+
+sub visitValueBaseType {
+	my $self = shift;
+	my ($node) = @_;
+	$node->{java_package} = "java.io";
+	$node->{java_name} = "Serializable";
+	$node->{java_Name} = "java.io.Serializable";
 }
 
 #
@@ -925,63 +948,65 @@ sub visitExpression {
 sub visitTypeDeclarator {
 	my $self = shift;
 	my ($node) = @_;
-	if (exists $node->{modifier}) {		# native
+	return if (exists $node->{java_Helper});
+	my $type = $self->_get_defn($node->{type});
+	$type->visit($self);
+	if (exists $node->{array_size}) {
+		$node->{java_Helper} = $node->{java_Name} . "Helper";
 		$node->{java_helper} = $node->{java_name};
-		$node->{java_Helper} = $self->_get_Helper($node, $self->_get_pkg($node)) . "Helper";
-		$node->{java_Holder} = $self->_get_Helper($node, $self->_get_pkg($node)) . "Holder";
+		$node->{java_Holder} = $node->{java_Name} . "Holder";
 		$node->{java_init} = "null";
+#		$node->{java_init} = "new java.util.Vector (0)";
 		$node->{java_read} = $node->{java_Helper} . ".read (\$is)";
 		$node->{java_write} = $node->{java_Helper} . ".write (\$os, ";
 		$node->{java_type_code} = $node->{java_Helper} . ".type ()";
 	} else {
-		return if (exists $node->{java_Helper});
-		my $type = $self->_get_defn($node->{type});
-		$type->visit($self);
-		if (exists $node->{array_size}) {
-			$node->{java_Helper} = $node->{java_Name} . "Helper";
-			$node->{java_helper} = $node->{java_name};
-			$node->{java_Holder} = $node->{java_Name} . "Holder";
+		if ($type->isa('SequenceType')) {
+			$node->{java_helper} = $self->_get_name($node);
+			$node->{java_Helper} = $self->_get_Helper($node) . "Helper";
+			$node->{java_Holder} = $self->_get_Helper($node) . "Holder";
 			$node->{java_init} = "null";
 #			$node->{java_init} = "new java.util.Vector (0)";
 			$node->{java_read} = $node->{java_Helper} . ".read (\$is)";
 			$node->{java_write} = $node->{java_Helper} . ".write (\$os, ";
 			$node->{java_type_code} = $node->{java_Helper} . ".type ()";
 		} else {
-			if ($type->isa('SequenceType')) {
+			if (	   $type->isa('BasicType')
+					or $type->isa('StringType')
+					or $type->isa('WideStringType')
+					or $type->isa('FixedPtType') ) {
 				$node->{java_helper} = $self->_get_name($node);
 				$node->{java_Helper} = $self->_get_Helper($node) . "Helper";
-				$node->{java_Holder} = $self->_get_Helper($node) . "Holder";
-				$node->{java_init} = "null";
-#				$node->{java_init} = "new java.util.Vector (0)";
+				$node->{java_Holder} = $type->{java_Holder};
+				$node->{java_init} = $type->{java_init};
+				$node->{java_read} = $type->{java_read};
+				$node->{java_write} = $type->{java_write};
+				$node->{java_type_code} = $type->{java_type_code};
+				$node->{java_tk} = $type->{java_tk} if (exists $type->{java_tk});
+			} else {
+				$node->{java_Helper} = $node->{java_Name} . "Helper";
+				$node->{java_helper} = $node->{java_name};
+				$node->{java_Holder} = $node->{java_Name} . "Holder";
+#				$node->{java_init} = "null";
+				$node->{java_init} = $type->{java_init};
 				$node->{java_read} = $node->{java_Helper} . ".read (\$is)";
 				$node->{java_write} = $node->{java_Helper} . ".write (\$os, ";
 				$node->{java_type_code} = $node->{java_Helper} . ".type ()";
-			} else {
-				if (	   $type->isa('BasicType')
-						or $type->isa('StringType')
-						or $type->isa('WideStringType')
-						or $type->isa('FixedPtType') ) {
-					$node->{java_helper} = $self->_get_name($node);
-					$node->{java_Helper} = $self->_get_Helper($node) . "Helper";
-					$node->{java_Holder} = $type->{java_Holder};
-					$node->{java_init} = $type->{java_init};
-					$node->{java_read} = $type->{java_read};
-					$node->{java_write} = $type->{java_write};
-					$node->{java_type_code} = $type->{java_type_code};
-					$node->{java_tk} = $type->{java_tk} if (exists $type->{java_tk});
-				} else {
-					$node->{java_Helper} = $node->{java_Name} . "Helper";
-					$node->{java_helper} = $node->{java_name};
-					$node->{java_Holder} = $node->{java_Name} . "Holder";
-#					$node->{java_init} = "null";
-					$node->{java_init} = $type->{java_init};
-					$node->{java_read} = $node->{java_Helper} . ".read (\$is)";
-					$node->{java_write} = $node->{java_Helper} . ".write (\$os, ";
-					$node->{java_type_code} = $node->{java_Helper} . ".type ()";
-				}
 			}
 		}
 	}
+}
+
+sub visitNativeType {
+	my $self = shift;
+	my ($node) = @_;
+	$node->{java_helper} = $node->{java_name};
+	$node->{java_Helper} = $self->_get_Helper($node, $self->_get_pkg($node)) . "Helper";
+	$node->{java_Holder} = $self->_get_Helper($node, $self->_get_pkg($node)) . "Holder";
+	$node->{java_init} = "null";
+	$node->{java_read} = $node->{java_Helper} . ".read (\$is)";
+	$node->{java_write} = $node->{java_Helper} . ".write (\$os, ";
+	$node->{java_type_code} = $node->{java_Helper} . ".type ()";
 }
 
 #
@@ -990,133 +1015,161 @@ sub visitTypeDeclarator {
 #	See	1.4		Mapping for Basic Data Types
 #
 
-sub visitBasicType {
+sub visitIntegerType {
 	my $self = shift;
 	my ($node) = @_;
-	if      ($node->isa('FloatingPtType')) {
-		if      ($node->{value} eq 'float') {
-			$node->{java_Holder} = "org.omg.CORBA.FloatHolder";
-			$node->{java_init} = "(float)0";
-			$node->{java_read} = "\$is.read_float ()";
-			$node->{java_write} = "\$os.write_float (";
-			$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_float)";
-			$node->{java_tk} = "float";
-		} elsif ($node->{value} eq 'double') {
-			$node->{java_Holder} = "org.omg.CORBA.DoubleHolder";
-			$node->{java_init} = "(double)0";
-			$node->{java_read} = "\$is.read_double ()";
-			$node->{java_write} = "\$os.write_double (";
-			$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_double)";
-			$node->{java_tk} = "double";
-		} elsif ($node->{value} eq 'long double') {
-			warn __PACKAGE__," 'long double' not available at this time for Java.\n";
-			$node->{java_Holder} = "org.omg.CORBA.DoubleHolder";
-			$node->{java_init} = "(double)0";
-			$node->{java_read} = "\$is.read_double ()";
-			$node->{java_write} = "\$os.write_double (";
-			$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_double)";
-			$node->{java_tk} = "double";
-		} else {
-			warn __PACKAGE__,"::visit2BasicType (FloatingType) $node->{value}.\n";
-		}
-	} elsif ($node->isa('IntegerType')) {
-		if      ($node->{value} eq 'short') {
-			$node->{java_Holder} = "org.omg.CORBA.ShortHolder";
-			$node->{java_init} = "(short)0";
-			$node->{java_read} = "\$is.read_short ()";
-			$node->{java_write} = "\$os.write_short (";
-			$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_short)";
-			$node->{java_tk} = "short";
-		} elsif ($node->{value} eq 'unsigned short') {
-			$node->{java_Holder} = "org.omg.CORBA.ShortHolder";
-			$node->{java_init} = "(short)0";
-			$node->{java_read} = "\$is.read_ushort ()";
-			$node->{java_write} = "\$os.write_ushort (";
-			$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_ushort)";
-			$node->{java_tk} = "ushort";
-		} elsif ($node->{value} eq 'long') {
-			$node->{java_Holder} = "org.omg.CORBA.IntHolder";
-			$node->{java_init} = "0";
-			$node->{java_read} = "\$is.read_long ()";
-			$node->{java_write} = "\$os.write_long (";
-			$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_long)";
-			$node->{java_tk} = "long";
-		} elsif ($node->{value} eq 'unsigned long') {
-			$node->{java_Holder} = "org.omg.CORBA.IntHolder";
-			$node->{java_init} = "0";
-			$node->{java_read} = "\$is.read_ulong ()";
-			$node->{java_write} = "\$os.write_ulong (";
-			$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_ulong)";
-			$node->{java_tk} = "ulong";
-		} elsif ($node->{value} eq 'long long') {
-			$node->{java_Holder} = "org.omg.CORBA.LongHolder";
-			$node->{java_init} = "(long)0";
-			$node->{java_read} = "\$is.read_longlong ()";
-			$node->{java_write} = "\$os.write_longlong (";
-			$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_longlong)";
-			$node->{java_tk} = "longlong";
-		} elsif ($node->{value} eq 'unsigned long long') {
-			$node->{java_Holder} = "org.omg.CORBA.LongHolder";
-			$node->{java_init} = "(long)0";
-			$node->{java_read} = "\$is.read_ulonglong ()";
-			$node->{java_write} = "\$os.write_ulonglong (";
-			$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_ulonglong)";
-			$node->{java_tk} = "ulonglong";
-		} else {
-			warn __PACKAGE__,"::visit2BasicType (IntegerType) $node->{value}.\n";
-		}
-	} elsif ($node->isa('CharType')) {
-		$node->{java_Holder} = "org.omg.CORBA.CharHolder";
-		$node->{java_init} = "'\\0'";
-		$node->{java_read} = "\$is.read_char ()";
-		$node->{java_write} = "\$os.write_char (";
-		$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_char)";
-		$node->{java_tk} = "char";
-	} elsif ($node->isa('WideCharType')) {
-		$node->{java_Holder} = "org.omg.CORBA.CharHolder";
-		$node->{java_init} = "'\\0'";
-		$node->{java_read} = "\$is.read_wchar ()";
-		$node->{java_write} = "\$os.write_wchar (";
-		$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_wchar)";
-		$node->{java_tk} = "wchar";
-	} elsif ($node->isa('BooleanType')) {
-		$node->{java_Holder} = "org.omg.CORBA.BooleanHolder";
-		$node->{java_init} = "false";
-		$node->{java_read} = "\$is.read_boolean ()";
-		$node->{java_write} = "\$os.write_boolean (";
-		$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_boolean)";
-		$node->{java_tk} = "boolean";
-	} elsif ($node->isa('OctetType')) {
-		$node->{java_Holder} = "org.omg.CORBA.ByteHolder";
-		$node->{java_init} = "(byte)0";
-		$node->{java_read} = "\$is.read_octet ()";
-		$node->{java_write} = "\$os.write_octet (";
-		$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_octet)";
-		$node->{java_tk} = "octet";
-	} elsif ($node->isa('AnyType')) {
-		$node->{java_Holder} = "org.omg.CORBA.AnyHolder";
-		$node->{java_init} = "null";
-		$node->{java_read} = "\$is.read_any ()";
-		$node->{java_write} = "\$os.write_any (";
-		$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_any)";
-		$node->{java_tk} = "any";
-	} elsif ($node->isa('ObjectType')) {
-		$node->{java_Holder} = "org.omg.CORBA.ObjectHolder";
-		$node->{java_init} = "null";
-		$node->{java_read} = "org.omg.CORBA.ObjectHelper.read (\$is)";
-		$node->{java_write} = "org.omg.CORBA.ObjectHelper.write (\$os, ";
-		$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_objref)";
-		$node->{java_tk} = "objref";
-	} elsif ($node->isa('ValueBaseType')) {
-		$node->{java_Holder} = "org.omg.CORBA.ValueBaseHolder";
-		$node->{java_init} = "null";
-		$node->{java_read} = "org.omg.CORBA.ValueBaseHelper.read (\$is)";
-		$node->{java_write} = "org.omg.CORBA.ValueBaseHelper.write (\$os, ";
-		$node->{java_type_code} = "org.omg.CORBA.ValueBaseHelper.type ()";
-#		$node->{java_tk} = "objref";
+	if      ($node->{value} eq 'short') {
+		$node->{java_Holder} = "org.omg.CORBA.ShortHolder";
+		$node->{java_init} = "(short)0";
+		$node->{java_read} = "\$is.read_short ()";
+		$node->{java_write} = "\$os.write_short (";
+		$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_short)";
+		$node->{java_tk} = "short";
+	} elsif ($node->{value} eq 'unsigned short') {
+		$node->{java_Holder} = "org.omg.CORBA.ShortHolder";
+		$node->{java_init} = "(short)0";
+		$node->{java_read} = "\$is.read_ushort ()";
+		$node->{java_write} = "\$os.write_ushort (";
+		$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_ushort)";
+		$node->{java_tk} = "ushort";
+	} elsif ($node->{value} eq 'long') {
+		$node->{java_Holder} = "org.omg.CORBA.IntHolder";
+		$node->{java_init} = "0";
+		$node->{java_read} = "\$is.read_long ()";
+		$node->{java_write} = "\$os.write_long (";
+		$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_long)";
+		$node->{java_tk} = "long";
+	} elsif ($node->{value} eq 'unsigned long') {
+		$node->{java_Holder} = "org.omg.CORBA.IntHolder";
+		$node->{java_init} = "0";
+		$node->{java_read} = "\$is.read_ulong ()";
+		$node->{java_write} = "\$os.write_ulong (";
+		$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_ulong)";
+		$node->{java_tk} = "ulong";
+	} elsif ($node->{value} eq 'long long') {
+		$node->{java_Holder} = "org.omg.CORBA.LongHolder";
+		$node->{java_init} = "(long)0";
+		$node->{java_read} = "\$is.read_longlong ()";
+		$node->{java_write} = "\$os.write_longlong (";
+		$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_longlong)";
+		$node->{java_tk} = "longlong";
+	} elsif ($node->{value} eq 'unsigned long long') {
+		$node->{java_Holder} = "org.omg.CORBA.LongHolder";
+		$node->{java_init} = "(long)0";
+		$node->{java_read} = "\$is.read_ulonglong ()";
+		$node->{java_write} = "\$os.write_ulonglong (";
+		$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_ulonglong)";
+		$node->{java_tk} = "ulonglong";
 	} else {
-		warn __PACKAGE__,"::visit2BasicType INTERNAL ERROR (",ref $node,").\n";
+		warn __PACKAGE__,"::visitIntegerType $node->{value}.\n";
 	}
+}
+
+sub visitFloatingPtType {
+	my $self = shift;
+	my ($node) = @_;
+	if      ($node->{value} eq 'float') {
+		$node->{java_Holder} = "org.omg.CORBA.FloatHolder";
+		$node->{java_init} = "(float)0";
+		$node->{java_read} = "\$is.read_float ()";
+		$node->{java_write} = "\$os.write_float (";
+		$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_float)";
+		$node->{java_tk} = "float";
+	} elsif ($node->{value} eq 'double') {
+		$node->{java_Holder} = "org.omg.CORBA.DoubleHolder";
+		$node->{java_init} = "(double)0";
+		$node->{java_read} = "\$is.read_double ()";
+		$node->{java_write} = "\$os.write_double (";
+		$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_double)";
+		$node->{java_tk} = "double";
+	} elsif ($node->{value} eq 'long double') {
+		warn __PACKAGE__," 'long double' not available at this time for Java.\n";
+		$node->{java_Holder} = "org.omg.CORBA.DoubleHolder";
+		$node->{java_init} = "(double)0";
+		$node->{java_read} = "\$is.read_double ()";
+		$node->{java_write} = "\$os.write_double (";
+		$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_double)";
+		$node->{java_tk} = "double";
+	} else {
+		warn __PACKAGE__,"::visitFloatingPtType $node->{value}.\n";
+	}
+}
+
+sub visitCharType {
+	my $self = shift;
+	my ($node) = @_;
+	$node->{java_Holder} = "org.omg.CORBA.CharHolder";
+	$node->{java_init} = "'\\0'";
+	$node->{java_read} = "\$is.read_char ()";
+	$node->{java_write} = "\$os.write_char (";
+	$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_char)";
+	$node->{java_tk} = "char";
+}
+
+sub visitWideCharType {
+	my $self = shift;
+	my ($node) = @_;
+	$node->{java_Holder} = "org.omg.CORBA.CharHolder";
+	$node->{java_init} = "'\\0'";
+	$node->{java_read} = "\$is.read_wchar ()";
+	$node->{java_write} = "\$os.write_wchar (";
+	$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_wchar)";
+	$node->{java_tk} = "wchar";
+}
+
+sub visitBooleanType {
+	my $self = shift;
+	my ($node) = @_;
+	$node->{java_Holder} = "org.omg.CORBA.BooleanHolder";
+	$node->{java_init} = "false";
+	$node->{java_read} = "\$is.read_boolean ()";
+	$node->{java_write} = "\$os.write_boolean (";
+	$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_boolean)";
+	$node->{java_tk} = "boolean";
+}
+
+sub visitOctetType {
+	my $self = shift;
+	my ($node) = @_;
+	$node->{java_Holder} = "org.omg.CORBA.ByteHolder";
+	$node->{java_init} = "(byte)0";
+	$node->{java_read} = "\$is.read_octet ()";
+	$node->{java_write} = "\$os.write_octet (";
+	$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_octet)";
+	$node->{java_tk} = "octet";
+}
+
+sub visitAnyType {
+	my $self = shift;
+	my ($node) = @_;
+	$node->{java_Holder} = "org.omg.CORBA.AnyHolder";
+	$node->{java_init} = "null";
+	$node->{java_read} = "\$is.read_any ()";
+	$node->{java_write} = "\$os.write_any (";
+	$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_any)";
+	$node->{java_tk} = "any";
+}
+
+sub visitObjectType {
+	my $self = shift;
+	my ($node) = @_;
+	$node->{java_Holder} = "org.omg.CORBA.ObjectHolder";
+	$node->{java_init} = "null";
+	$node->{java_read} = "org.omg.CORBA.ObjectHelper.read (\$is)";
+	$node->{java_write} = "org.omg.CORBA.ObjectHelper.write (\$os, ";
+	$node->{java_type_code} = "org.omg.CORBA.ORB.init ().get_primitive_tc (org.omg.CORBA.TCKind.tk_objref)";
+	$node->{java_tk} = "objref";
+}
+
+sub visitValueBaseType {
+	my $self = shift;
+	my ($node) = @_;
+	$node->{java_Holder} = "org.omg.CORBA.ValueBaseHolder";
+	$node->{java_init} = "null";
+	$node->{java_read} = "org.omg.CORBA.ValueBaseHelper.read (\$is)";
+	$node->{java_write} = "org.omg.CORBA.ValueBaseHelper.write (\$os, ";
+	$node->{java_type_code} = "org.omg.CORBA.ValueBaseHelper.type ()";
+#	$node->{java_tk} = "objref";
 }
 
 #

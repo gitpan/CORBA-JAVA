@@ -277,7 +277,6 @@ sub visitBooleanLiteral {
 sub visitTypeDeclarator {
 	my $self = shift;
 	my ($node) = @_;
-	return if (exists $node->{modifier});	# native IDL2.2
 	$self->visitType($node->{type});
 	if (exists $node->{array_size}) {
 		foreach (@{$node->{array_size}}) {
@@ -286,6 +285,10 @@ sub visitTypeDeclarator {
 			$_->{$self->{key}} = $str;
 		}
 	}
+}
+
+sub visitNativeType {
+	# empty
 }
 
 #
