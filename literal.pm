@@ -4,7 +4,7 @@ use UNIVERSAL;
 #
 #			Interface Definition Language (OMG IDL CORBA v3.0)
 #
-#			IDL to Java Language Mapping Specification, Version 1.1 June 2001
+#			IDL to Java Language Mapping Specification, Version 1.2 August 2002
 #
 
 package JavaLiteralVisitor;
@@ -17,10 +17,20 @@ sub new {
 	my $class = ref($proto) || $proto;
 	my $self = {};
 	bless($self, $class);
-	my($parser) = @_;
+	my ($parser) = @_;
 	$self->{key} = 'java_literal';
 	$self->{symbtab} = $parser->YYData->{symbtab};
 	return $self;
+}
+
+sub _get_defn {
+	my $self = shift;
+	my ($defn) = @_;
+	if (ref $defn) {
+		return $defn;
+	} else {
+		return $self->{symbtab}->Lookup($defn);
+	}
 }
 
 sub visitNameType {
@@ -40,7 +50,7 @@ sub visitNameType {
 
 sub visitNameSpecification {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	foreach (@{$node->{list_export}}) {
 		$self->{symbtab}->Lookup($_)->visitName($self);
 	}
@@ -52,7 +62,7 @@ sub visitNameSpecification {
 
 sub visitNameModules {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	foreach (@{$node->{list_export}}) {
 		$self->{symbtab}->Lookup($_)->visitName($self);
 	}
@@ -64,7 +74,7 @@ sub visitNameModules {
 
 sub visitNameBaseInterface {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	return if (exists $node->{$self->{key}});
 	$node->{$self->{key}} = 1;
 	foreach (@{$node->{list_export}}) {
@@ -78,18 +88,20 @@ sub visitNameBaseInterface {
 
 sub visitNameStateMember {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$self->visitNameType($node->{type});	# type_spec
 	if (exists $node->{array_size}) {
 		foreach (@{$node->{array_size}}) {
-			$_->visitName($self);			# expression
+			my $str = $_->{value};
+			$str =~ s/^\+//;
+			$_->{$self->{key}} = $str;
 		}
 	}
 }
 
 sub visitNameInitializer {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	foreach (@{$node->{list_param}}) {
 		$_->visitName($self);				# parameter
 	}
@@ -101,7 +113,7 @@ sub visitNameInitializer {
 
 sub visitNameConstant {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my $defn;
 	my $pkg = $node->{full};
 	$pkg =~ s/::[0-9A-Z_a-z]+$//;
@@ -112,11 +124,12 @@ sub visitNameConstant {
 		$node->{$self->{key}} = $node->{java_Name} . '.value';
 	}
 	$node->{value}->visitName($self);		# expression
+	$self->_get_defn($node->{type})->visitName($self);
 }
 
 sub _Eval {
 	my $self = shift;
-	my($list_expr, $type) = @_;
+	my ($list_expr, $type) = @_;
 	my $elt = pop @{$list_expr};
 	unless (ref $elt) {
 		$elt = $self->{symbtab}->Lookup($elt);
@@ -143,25 +156,50 @@ sub _Eval {
 
 sub visitNameExpression {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my @list_expr = @{$node->{list_expr}};		# create a copy
 	$node->{$self->{key}} = $self->_Eval(\@list_expr, $node->{type});
 }
 
 sub visitNameIntegerLiteral {
 	my $self = shift;
-	my($node) = @_;
+	my ($node, $type) = @_;
 	my $str = $node->{value};
-	$node->{$self->{key}} = $str;
+	$str =~ s/^\+//;
+	my $cast = "";
+	if      ($type->{value} eq 'short') {
+		$cast = "(short)";
+	} elsif ($type->{value} eq 'unsigned short') {
+		$cast = "(short)";
+	} elsif ($type->{value} eq 'long') {
+		# empty
+	} elsif ($type->{value} eq 'unsigned long') {
+		# empty
+	} elsif ($type->{value} eq 'long long') {
+		$cast = "(long)";
+	} elsif ($type->{value} eq 'unsigned long long') {
+		$cast = "(long)";
+	} elsif ($type->{value} eq 'octet') {
+		$cast = "(byte)";
+	} else {
+		warn __PACKAGE__,"::visitNameIntegerLiteral $type->{value}.\n";
+	}
+	$node->{$self->{key}} = $cast . $str;
 }
 
 sub visitNameStringLiteral {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my @list = unpack "C*",$node->{value};
 	my $str = "\"";
 	foreach (@list) {
-		if ($_ < 32 or $_ >= 128) {
+		if      ($_ == 10) {
+			$str .= "\\n";
+		} elsif ($_ == 13) {
+			$str .= "\\r";
+		} elsif ($_ == 34) {
+			$str .= "\\\"";
+		} elsif ($_ < 32 or $_ >= 128) {
 			$str .= sprintf "\\u%04x",$_;
 		} else {
 			$str .= chr $_;
@@ -172,30 +210,22 @@ sub visitNameStringLiteral {
 }
 
 sub visitNameWideStringLiteral {
-	my $self = shift;
-	my($node) = @_;
-	my @list = unpack "C*",$node->{value};
-	my $str = "L\"";
-	foreach (@list) {
-		if ($_ < 32 or ($_ >= 128 and $_ < 256)) {
-			$str .= sprintf "\\u%04x",$_;
-		} elsif ($_ >= 256) {
-			$str .= sprintf "\\u%04x",$_;
-		} else {
-			$str .= chr $_;
-		}
-	}
-	$str .= "\"";
-	$node->{$self->{key}} = $str;
+	shift->visitNameStringLiteral(@_);
 }
 
 sub visitNameCharacterLiteral {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my @list = unpack "C",$node->{value};
 	my $c = $list[0];
 	my $str = "'";
-	if ($c < 32 or $c >= 128) {
+	if      ($c == 10) {
+		$str .= "\\n";
+	} elsif ($c == 13) {
+		$str .= "\\r";
+	} elsif ($c == 39) {
+		$str .= "\\'";
+	} elsif ($c < 32 or $c >= 128) {
 		$str .= sprintf "\\u%04x",$c;
 	} else {
 		$str .= chr $c;
@@ -205,25 +235,12 @@ sub visitNameCharacterLiteral {
 }
 
 sub visitNameWideCharacterLiteral {
-	my $self = shift;
-	my($node) = @_;
-	my @list = unpack "C",$node->{value};
-	my $c = $list[0];
-	my $str = "L'";
-	if ($c < 32 or ($c >= 128 and $c < 256)) {
-		$str .= sprintf "\\u%04x",$c;
-	} elsif ($c >= 256) {
-		$str .= sprintf "\\u%04x",$c;
-	} else {
-		$str .= chr $c;
-	}
-	$str .= "'";
-	$node->{$self->{key}} = $str;
+	shift->visitNameCharacterLiteral(@_);
 }
 
 sub visitNameFixedPtLiteral {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my $str = "\"";
 	$str .= $node->{value};
 	$str .= "\"";
@@ -232,11 +249,13 @@ sub visitNameFixedPtLiteral {
 
 sub visitNameFloatingPtLiteral {
 	my $self = shift;
-	my($node, $type) = @_;
+	my ($node, $type) = @_;
 	my $str = $node->{value};
 	if (      $type->{value} eq 'float' ) {
 		$str .= 'f';
 	} elsif ( $type->{value} eq 'double' ) {
+		$str .= 'd';
+	} elsif ( $type->{value} eq 'long double' ) {
 		$str .= 'd';
 	}
 	$node->{$self->{key}} = $str;
@@ -244,7 +263,7 @@ sub visitNameFloatingPtLiteral {
 
 sub visitNameBooleanLiteral {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	if ($node->{value} eq 'TRUE') {
 		$node->{$self->{key}} = 'true';
 	} else {
@@ -258,12 +277,14 @@ sub visitNameBooleanLiteral {
 
 sub visitNameTypeDeclarator {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	return if (exists $node->{modifier});	# native IDL2.2
 	$self->visitNameType($node->{type});
 	if (exists $node->{array_size}) {
 		foreach (@{$node->{array_size}}) {
-			$_->visitName($self);			# expression
+			my $str = $_->{value};
+			$str =~ s/^\+//;
+			$_->{$self->{key}} = $str;
 		}
 	}
 }
@@ -288,7 +309,7 @@ sub visitNameAnyType {
 
 sub visitNameStructType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	return if (exists $node->{$self->{key}});
 	$node->{$self->{key}} = 1;
 	foreach (@{$node->{list_value}}) {
@@ -298,16 +319,18 @@ sub visitNameStructType {
 
 sub visitNameArray {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$self->visitNameType($node->{type});
 	foreach (@{$node->{array_size}}) {
-		$_->visitName($self);				# expression
+		my $str = $_->{value};
+		$str =~ s/^\+//;
+		$_->{$self->{key}} = $str;
 	}
 }
 
 sub visitNameSingle {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$self->visitNameType($node->{type});
 }
 
@@ -316,20 +339,25 @@ sub visitNameSingle {
 
 sub visitNameUnionType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	return if (exists $node->{$self->{key}});
 	$node->{$self->{key}} = 1;
-	$self->visitNameType($node->{type});
+	my $type = $self->_get_defn($node->{type});
+	$self->visitNameType($type);
 	foreach (@{$node->{list_expr}}) {
-		$_->visitName($self);				# case
+		$_->visitName($self, $type);		# case
 	}
 }
 
 sub visitNameCase {
 	my $self = shift;
-	my($node) = @_;
+	my ($node, $type) = @_;
 	foreach (@{$node->{list_label}}) {
-		$_->visitName($self);				# default or expression
+		if      ($type->isa('EnumType') and $_->isa('Expression')) {
+			$_->{$self->{key}} = $type->{java_Name} . '._' . $_->{value}->{java_name};
+		} else {
+			$_->visitName($self);			# default or expression
+		}
 	}
 	$node->{element}->visitName($self);		# array or single
 }
@@ -340,7 +368,7 @@ sub visitNameDefault {
 
 sub visitNameElement {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$self->visitNameType($node->{value});	# single or array
 }
 
@@ -349,7 +377,7 @@ sub visitNameElement {
 
 sub visitNameEnumType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	foreach (@{$node->{list_expr}}) {
 		$_->visitName($self);				# enum
 	}
@@ -357,8 +385,9 @@ sub visitNameEnumType {
 
 sub visitNameEnum {
 	my $self = shift;
-	my($node,$type) = @_;
-	$node->{$self->{key}} = $type->{java_Name} . '._' . $node->{java_name};
+	my ($node) = @_;
+	my $type = $self->_get_defn($node->{type});
+	$node->{$self->{key}} = $type->{java_Name} . '.' . $node->{java_name};
 }
 
 #
@@ -367,26 +396,26 @@ sub visitNameEnum {
 
 sub visitNameSequenceType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$self->visitNameType($node->{type});
 	$node->{max}->visitName($self) if (exists $node->{max});
 }
 
 sub visitNameStringType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{max}->visitName($self) if (exists $node->{max});
 }
 
 sub visitNameWideStringType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{max}->visitName($self) if (exists $node->{max});
 }
 
 sub visitNameFixedPtType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{d}->visitName($self);
 	$node->{s}->visitName($self);
 }
@@ -401,7 +430,7 @@ sub visitNameFixedPtConstType {
 
 sub visitNameException {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	foreach (@{$node->{list_value}}) {
 		$self->visitNameType($_);			# single or array
 	}
@@ -413,7 +442,7 @@ sub visitNameException {
 
 sub visitNameOperation {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$self->visitNameType($node->{type});	# param_type_spec or void
 	foreach (@{$node->{list_param}}) {
 		$_->visitName($self);				# parameter
@@ -422,7 +451,7 @@ sub visitNameOperation {
 
 sub visitNameParameter {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$self->visitNameType($node->{type});	# param_type_spec
 }
 
@@ -436,7 +465,7 @@ sub visitNameVoidType {
 
 sub visitNameAttribute {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$self->visitNameType($node->{type});	# param_type_spec
 }
 
@@ -461,23 +490,23 @@ sub visitNameTypePrefix {
 #
 
 sub visitNameProvides {
-	# JAVA mapping is aligned with CORBA 2.4
+	# empty
 }
 
 sub visitNameUses {
-	# JAVA mapping is aligned with CORBA 2.4
+	# empty
 }
 
 sub visitNamePublishes {
-	# JAVA mapping is aligned with CORBA 2.4
+	# empty
 }
 
 sub visitNameEmits {
-	# JAVA mapping is aligned with CORBA 2.4
+	# empty
 }
 
 sub visitNameConsumes {
-	# JAVA mapping is aligned with CORBA 2.4
+	# empty
 }
 
 #
@@ -485,18 +514,16 @@ sub visitNameConsumes {
 #
 
 sub visitNameFactory {
-	# JAVA mapping is aligned with CORBA 2.4
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	foreach (@{$node->{list_param}}) {
 		$_->visitName($self);				# parameter
 	}
 }
 
 sub visitNameFinder {
-	# JAVA mapping is aligned with CORBA 2.4
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	foreach (@{$node->{list_param}}) {
 		$_->visitName($self);				# parameter
 	}

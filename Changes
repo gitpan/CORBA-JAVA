@@ -1,5 +1,9 @@
 Revision history for Perl extension CORBA::JAVA.
 
+0.05  Wed Dec 17 12:30:00 2003
+	- CORBA IDL 3.0
+	- IDL to Java Language Mapping, Version 1.2
+
 0.02  Fri Mar 14 12:30:00 2003
 	- first release
 

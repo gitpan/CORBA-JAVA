@@ -6,7 +6,7 @@ WriteMakefile(
     'VERSION_FROM'  => 'class.pm',
     'ABSTRACT'      => 'IDL compiler to JAVA (idlj clone)',
     'PREREQ_PM'     => {
-                        'CORBA::IDL::node'  => 2.00,
+                        'CORBA::IDL::node'  => 2.05,
     },
     'PM'            => {
                         'class.pm'      => '$(INST_LIBDIR)/JAVA/class.pm',
