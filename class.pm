@@ -9,7 +9,7 @@ use strict;
 package CORBA::JAVA::class;
 
 use vars qw($VERSION);
-$VERSION = '2.46';
+$VERSION = '2.47';
 
 package CORBA::JAVA::classVisitor;
 
@@ -435,7 +435,11 @@ sub _interface_stub {
 	my $FH = $self->{out};
 	print $FH "public class _",$node->{java_name},"Stub extends org.omg.CORBA.portable.ObjectImpl implements ",$node->{java_Name},"\n";
 	print $FH "{\n";
-	print $FH "  private static final long serialVersionUID = 0x",$node->{java_uid},"L;\n";
+	if (exists $node->{serial_uid}) {
+		print $FH "  private static final long serialVersionUID = 0x",$node->{serial_uid},"L;\n";
+	} else {
+		print $FH "  private static final long serialVersionUID = 0x",$node->{java_uid},"L;\n";
+	}
 	print $FH "\n";
 	print $FH "\n";
 	print $FH $self->{stub};
@@ -667,7 +671,11 @@ sub _value {
 	}
 	print $FH "\n";
 	print $FH "{\n";
-	print $FH "  private static final long serialVersionUID = 0x",$node->{java_uid},"L;\n";
+	if (exists $node->{serial_uid}) {
+		print $FH "  private static final long serialVersionUID = 0x",$node->{serial_uid},"L;\n";
+	} else {
+		print $FH "  private static final long serialVersionUID = 0x",$node->{java_uid},"L;\n";
+	}
 	print $FH "\n";
 	foreach (@{$node->{list_member}}) {
 		my $member = $self->_get_defn($_);
@@ -1114,7 +1122,11 @@ sub _boxed {		# primitive type
 	print $FH $self->_format_javadoc($node);
 	print $FH "public class ",$node->{java_name}," implements org.omg.CORBA.portable.ValueBase\n";
 	print $FH "{\n";
-	print $FH "  private static final long serialVersionUID = 0x",$node->{java_uid},"L;\n";
+	if (exists $node->{serial_uid}) {
+		print $FH "  private static final long serialVersionUID = 0x",$node->{serial_uid},"L;\n";
+	} else {
+		print $FH "  private static final long serialVersionUID = 0x",$node->{java_uid},"L;\n";
+	}
 	print $FH "\n";
 	print $FH "  public ",$type->{java_Name}," value;\n";
 	print $FH "\n";
@@ -1711,7 +1723,11 @@ sub _struct {
 	print $FH $self->_format_javadoc($node);
 	print $FH "public final class ",$node->{java_name}," implements org.omg.CORBA.portable.IDLEntity\n";
 	print $FH "{\n";
-	print $FH "  private static final long serialVersionUID = 0x",$node->{java_uid},"L;\n";
+	if (exists $node->{serial_uid}) {
+		print $FH "  private static final long serialVersionUID = 0x",$node->{serial_uid},"L;\n";
+	} else {
+		print $FH "  private static final long serialVersionUID = 0x",$node->{java_uid},"L;\n";
+	}
 	print $FH "\n";
 	foreach (@{$node->{list_member}}) {
 		my $member = $self->_get_defn($_);
@@ -2313,7 +2329,11 @@ sub _union {
 	print $FH $self->_format_javadoc($node);
 	print $FH "public final class ",$node->{java_name}," implements org.omg.CORBA.portable.IDLEntity\n";
 	print $FH "{\n";
-	print $FH "  private static final long serialVersionUID = 0x",$node->{java_uid},"L;\n";
+	if (exists $node->{serial_uid}) {
+		print $FH "  private static final long serialVersionUID = 0x",$node->{serial_uid},"L;\n";
+	} else {
+		print $FH "  private static final long serialVersionUID = 0x",$node->{java_uid},"L;\n";
+	}
 	print $FH "\n";
 	print $FH "  private java.lang.Object __object;\n";
 	print $FH "  private ",$dis->{java_Name}," __discriminator;\n";
@@ -2693,7 +2713,11 @@ sub _enum {
 	print $FH $self->_format_javadoc($node);
 	print $FH "public class ",$node->{java_name}," implements org.omg.CORBA.portable.IDLEntity\n";
 	print $FH "{\n";
-	print $FH "  private static final long serialVersionUID = 0x",$node->{java_uid},"L;\n";
+	if (exists $node->{serial_uid}) {
+		print $FH "  private static final long serialVersionUID = 0x",$node->{serial_uid},"L;\n";
+	} else {
+		print $FH "  private static final long serialVersionUID = 0x",$node->{java_uid},"L;\n";
+	}
 	print $FH "\n";
 	print $FH "  private        int __value;\n";
 	print $FH "\n";
@@ -2876,7 +2900,11 @@ sub _exception {
 	print $FH $self->_format_javadoc($node);
 	print $FH "public final class ",$node->{java_name}," extends org.omg.CORBA.UserException\n";
 	print $FH "{\n";
-	print $FH "  private static final long serialVersionUID = 0x",$node->{java_uid},"L;\n";
+	if (exists $node->{serial_uid}) {
+		print $FH "  private static final long serialVersionUID = 0x",$node->{serial_uid},"L;\n";
+	} else {
+		print $FH "  private static final long serialVersionUID = 0x",$node->{java_uid},"L;\n";
+	}
 	print $FH "\n";
 	foreach (@{$node->{list_member}}) {
 		my $member = $self->_get_defn($_);

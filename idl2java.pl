@@ -25,7 +25,7 @@ if ($^O eq 'MSWin32') {
 } else {
 	$parser->YYData->{preprocessor} = 'cpp -C ' . $cflags;
 }
-$parser->getopts("hi:p:t:vx");
+$parser->getopts("hi:p:st:vx");
 if ($parser->YYData->{opt_v}) {
 	print "CORBA::JAVA $CORBA::JAVA::class::VERSION\n";
 	print "CORBA::IDL $CORBA::IDL::node::VERSION\n";
@@ -70,6 +70,8 @@ if (        exists $parser->YYData->{root}
 			and $parser->YYData->{opt_x} ) {
 		$parser->YYData->{symbtab}->Export();
 	}
+	$parser->YYData->{root}->visit(new CORBA::IDL::uidVisitor($parser))
+			if ($parser->YYData->{opt_s});
 	$parser->YYData->{root}->visit(new CORBA::JAVA::nameVisitor($parser, $parser->YYData->{opt_p}, $parser->YYData->{opt_t}));
 	$parser->YYData->{root}->visit(new CORBA::JAVA::literalVisitor($parser));
 	$parser->YYData->{root}->visit(new CORBA::JAVA::name2Visitor($parser));
@@ -123,6 +125,10 @@ Specify a path for import (only for IDL version 3.0).
 
 Specify a list of prefix (gives full qualified Java package names).
 
+=item B<-s>
+
+Generate the same serial uid as with C & Python.
+
 =item B<-t> "I<m1>=I<new.name1>;..."
 
 Specify a list of name translation (gives  full qualified Java package names).
@@ -156,7 +162,7 @@ cpp, L<idl2html>, L<idl2c>
 
 =head1 COPYRIGHT
 
-(c) 2002-2004 Francois PERRAD, France. All rights reserved.
+(c) 2002-2006 Francois PERRAD, France. All rights reserved.
 
 This program and all CORBA::JAVA modules are distributed
 under the terms of the Artistic Licence.
