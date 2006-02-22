@@ -156,7 +156,11 @@ sub visitExpression {
 	my $type = $node->{type};
 	my $str = $self->_Eval(\@list_expr, $type);
 	my $cast = "";
-	if (ref $type and $type->isa('IntegerType')) {
+	if (ref $type) {
+		while (	    $type->isa('TypeDeclarator')
+				and ! exists $type->{array_size} ) {
+			$type = $self->_get_defn($type->{type});
+		}
 		if      ($type->{value} eq 'short') {
 			$cast = "(short)";
 		} elsif ($type->{value} eq 'unsigned short') {
@@ -171,8 +175,6 @@ sub visitExpression {
 			$cast = "(long)";
 		} elsif ($type->{value} eq 'octet') {
 			$cast = "(byte)";
-		} else {
-			warn __PACKAGE__,"::visitExpression $type->{value}.\n";
 		}
 	}
 	$node->{$self->{key}} = $cast . $str;

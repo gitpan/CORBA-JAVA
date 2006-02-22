@@ -9,7 +9,7 @@ use strict;
 package CORBA::JAVA::class;
 
 use vars qw($VERSION);
-$VERSION = '2.47';
+$VERSION = '2.48';
 
 package CORBA::JAVA::classVisitor;
 
@@ -358,7 +358,6 @@ sub _interface {
 			print $FH $self->_get_defn($_)->{java_Name};
 			$first = 0;
 		}
-#		print $FH "\n";
 		print $FH ", " unless ($first);
 		print $FH "org.omg.CORBA.portable.IDLEntity\n";
 	} else {
@@ -1280,6 +1279,10 @@ sub visitConstant {
 	my ($node) = @_;
 	return unless ($self->{srcname} eq $node->{filename});
 	my $type = $self->_get_defn($node->{type});
+	while (	    $type->isa('TypeDeclarator')
+			and ! exists $type->{array_size} ) {
+		$type = $self->_get_defn($type->{type});
+	}
 	my $value = $node->{value};
 	my $defn;
 	my $pkg = $node->{full};
@@ -1851,6 +1854,9 @@ sub _member_helper_type {
 			push @array_max, undef;
 		}
 		$type = $self->_get_defn($type->{type});
+		while ($type->isa('TypeDeclarator')) {
+			$type = $self->_get_defn($type->{type});
+		}
 	}
 	print $FH $tab,"_tcOf_members0 = ",$type->{java_type_code},";\n";
 	foreach (reverse @array_max) {
@@ -1895,7 +1901,6 @@ sub _member_helper_read {
 	my ($member, $parent, $r_idx) = @_;
 
 	my $FH = $self->{out};
-#	my $label = ($member->isa('StateMember')) ? "" : "value.";
 	my $label = "";
 	unless ($member->isa('StateMember')) {
 		if ($parent->isa('UnionType')) {
@@ -1905,6 +1910,7 @@ sub _member_helper_read {
 		}
 	}
 	my $type = $self->_get_defn($member->{type});
+	my $typeh = $type;
 	my $name = $member->{java_name};
 	my @tab = ("    ");
 	push @tab, "    " if ($parent->isa('UnionType'));
@@ -1917,13 +1923,24 @@ sub _member_helper_read {
 	}
 	my @array_max = ();
 	while ($type->isa('SequenceType')) {
-		if (exists $type->{max}) {
-			push @array_max, $type->{max};
+		push @array1, "[]";
+		$type = $self->_get_defn($type->{type});
+		while ($type->isa('TypeDeclarator')) {
+			if (exists $type->{array_size}) {
+				foreach (@{$type->{array_size}}) {
+					push @array1, "[]";
+				}
+			}
+			$type = $self->_get_defn($type->{type});
+		}
+	}
+	while ($typeh->isa('SequenceType')) {
+		if (exists $typeh->{max}) {
+			push @array_max, $typeh->{max};
 		} else {
 			push @array_max, undef;
 		}
-		push @array1, "[]";
-		$type = $self->_get_defn($type->{type});
+		$typeh = $self->_get_defn($typeh->{type});
 	}
 	if ($parent->isa('UnionType')) {
 		print $FH @tab,$member->{java_type}," _",$member->{java_name}," = ",$member->{java_init},";\n";
@@ -1965,9 +1982,9 @@ sub _member_helper_read {
 		push @tab, "  ";
 	}
 	if ($parent->isa('UnionType')) {
-		print $FH @tab,"_",$name,$idx," = ",$type->{java_read},";\n";
+		print $FH @tab,"_",$name,$idx," = ",$typeh->{java_read},";\n";
 	} else {	# StructType or ExceptionType
-		print $FH @tab,$label,$name,$idx," = ",$type->{java_read},";\n";
+		print $FH @tab,$label,$name,$idx," = ",$typeh->{java_read},";\n";
 	}
 	if (($type->isa('StringType') or $type->isa('WideStringType')) and exists $type->{max}) {
 		print $FH @tab,"if (",$label,$name,$idx,".length () > (",$type->{max}->{java_literal},"))\n";
@@ -1993,6 +2010,7 @@ sub _member_helper_write {
 	my $label = ($member->isa('StateMember')) ? "" : "value.";
 	my $len = ($parent->isa('UnionType')) ? " ()" : "";
 	my $type = $self->_get_defn($member->{type});
+	my $typeh = $type;
 	my $name = $member->{java_name};
 	my @tab = ("    ");
 	push @tab, "    " if ($parent->isa('UnionType'));
@@ -2010,12 +2028,18 @@ sub _member_helper_write {
 	}
 	my @array_max = ();
 	while ($type->isa('SequenceType')) {
-		if (exists $type->{max}) {
-			push @array_max, $type->{max};
+		$type = $self->_get_defn($type->{type});
+		while ($type->isa('TypeDeclarator')) {
+			$type = $self->_get_defn($type->{type});
+		}
+	}
+	while ($typeh->isa('SequenceType')) {
+		if (exists $typeh->{max}) {
+			push @array_max, $typeh->{max};
 		} else {
 			push @array_max, undef;
 		}
-		$type = $self->_get_defn($type->{type});
+		$typeh = $self->_get_defn($typeh->{type});
 	}
 	foreach (@array_max) {
 		if (defined $_) {
@@ -2034,9 +2058,9 @@ sub _member_helper_write {
 		print $FH @tab,"  throw new org.omg.CORBA.MARSHAL (0, org.omg.CORBA.CompletionStatus.COMPLETED_MAYBE);\n";
 	}
 	if ($parent->isa('UnionType')) {
-		print $FH @tab,$type->{java_write},$label,$name," ()",$idx,");\n";
+		print $FH @tab,$typeh->{java_write},$label,$name," ()",$idx,");\n";
 	} else {	# StructType or ExceptionType
-		print $FH @tab,$type->{java_write},$label,$name,$idx,");\n";
+		print $FH @tab,$typeh->{java_write},$label,$name,$idx,");\n";
 	}
 	foreach (@array_max) {
 		pop @tab;
@@ -2951,7 +2975,6 @@ sub _exception {
 		print $FH "  public ",$node->{java_name}," (java.lang.String \$reason)\n";
 	}
 	print $FH "  {\n";
-#	print $FH "    super(",$node->{java_name},"Helper.id() + \"  \" + \$reason);\n";
 	print $FH "    super(new StringBuffer (",$node->{java_name},"Helper.id ()).append (\"  \").append (\$reason).toString ());\n";
 	foreach (@{$node->{list_member}}) {
 		my $member = $self->_get_defn($_);

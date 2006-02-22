@@ -1,5 +1,9 @@
 Revision history for Perl extension CORBA::JAVA.
 
+2.48  Tue Feb 21 18:30:00 2006
+	- fix const typedef octet
+	- fix mixed typedef & sequence indirection
+
 2.47  Fri Feb 17 12:30:00 2006
 	- add option -s (serialVersionUID compatible with Python & others languages)
 

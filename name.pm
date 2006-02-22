@@ -545,6 +545,9 @@ sub visitMember {
 	if ($type->isa('SequenceType') or exists ($type->{array_size})) {
 		while ($type->isa('SequenceType')) {
 			$type = $self->_get_defn($type->{type});
+			while ($type->isa('TypeDeclarator')) {
+				$type = $self->_get_defn($type->{type});
+			}
 		}
 		$type->visit($self);
 	} else {
@@ -1268,6 +1271,14 @@ sub visitMember {
 		while ($type->isa('SequenceType')) {
 			$array .= "[]";
 			$type = $self->_get_defn($type->{type});
+			while ($type->isa('TypeDeclarator')) {
+				if (exists $type->{array_size}) {
+					foreach (@{$type->{array_size}}) {
+						$array .= "[]";
+					}
+				}
+				$type = $self->_get_defn($type->{type});
+			}
 		}
 	}
 	$type->visit($self);
