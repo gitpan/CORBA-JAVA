@@ -1,5 +1,9 @@
 Revision history for Perl extension CORBA::JAVA.
 
+2.49  Fri Aug 25 08:30:00 2006
+	- fix typedef in parameter of operation
+	- fix typedef in struct member
+
 2.48  Tue Feb 21 18:30:00 2006
 	- fix const typedef octet
 	- fix mixed typedef & sequence indirection

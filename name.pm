@@ -1261,14 +1261,17 @@ sub visitMember {
 	while ($type->isa('TypeDeclarator') and !exists($type->{array_size})) {
 		$type = $self->_get_defn($type->{type});
 	}
-	if ($type->isa('SequenceType') or exists ($type->{array_size})) {
+	while ($type->isa('SequenceType') or exists ($type->{array_size})) {
 		if ($type->{array_size}) {
 			foreach (@{$type->{array_size}}) {
 				$array .= "[]";
 			}
 			$type = $self->_get_defn($type->{type});
+			while ($type->isa('TypeDeclarator') and !exists($type->{array_size})) {
+				$type = $self->_get_defn($type->{type});
+			}
 		}
-		while ($type->isa('SequenceType')) {
+		if ($type->isa('SequenceType')) {
 			$array .= "[]";
 			$type = $self->_get_defn($type->{type});
 			while ($type->isa('TypeDeclarator')) {
@@ -1484,8 +1487,34 @@ sub visitOperation {
 	$node->{java_params} = '';
 	my $first = 1;
 	foreach (@{$node->{list_param}}) {
+		my $type = $self->_get_defn($_->{type});
+		my $array = '';
+		while ($type->isa('TypeDeclarator') and !exists($type->{array_size})) {
+			$type = $self->_get_defn($type->{type});
+		}
+		if ($type->isa('SequenceType') or exists ($type->{array_size})) {
+			if ($type->{array_size}) {
+				foreach (@{$type->{array_size}}) {
+					$array .= "[]";
+				}
+				$type = $self->_get_defn($type->{type});
+			}
+			while ($type->isa('SequenceType')) {
+				$array .= "[]";
+				$type = $self->_get_defn($type->{type});
+				while ($type->isa('TypeDeclarator')) {
+					if (exists $type->{array_size}) {
+						foreach (@{$type->{array_size}}) {
+							$array .= "[]";
+						}
+					}
+					$type = $self->_get_defn($type->{type});
+				}
+			}
+		}
+		$type->visit($self);
 		$node->{java_params} .= ", " unless ($first);
-		$node->{java_params} .= $_->{java_Type};
+		$node->{java_params} .= $type->{java_Name} . $array;
 		$node->{java_params} .= " " . $_->{java_name};
 		$first = 0;
 	}
