@@ -1158,13 +1158,14 @@ loop:
 		    }
 		    columnAugment++;
 		    break;
+		case '\r':
+		case '\t':
+		    columnAugment++;
+		    break;
 		default:
 		    if (c < 0x0020 || c > 0xFFFD)
 			error ("illegal XML character U+"
 				+ Integer.toHexString (c));
-		    // FALLTHROUGH
-		case '\r':
-		case '\t':
 		    columnAugment++;
 		}
 	    }
@@ -1191,7 +1192,9 @@ loop:
                 error ("']]>' is not allowed here");
                 break;
             }
-            // fall-through
+	        closeSquareBracketCount=0;
+	        dataBufferAppend (c);
+	        break;
 	    default:
 	        closeSquareBracketCount=0;
 		    dataBufferAppend (c);
@@ -1728,7 +1731,7 @@ loop:
      */
     public int getEntityType (String ename)
     {
-	Object entity[] = (Object[]) entityInfo.get (ename);
+	Object entity[] = entityInfo.get (ename);
 	if (entity == null) {
 	    return ENTITY_UNDECLARED;
 	} else {
@@ -1746,7 +1749,7 @@ loop:
      */
     public String getEntityValue (String ename)
     {
-	Object entity[] = (Object[]) entityInfo.get (ename);
+	Object entity[] = entityInfo.get (ename);
 	if (entity == null) {
 	    return null;
 	} else {
@@ -2100,7 +2103,7 @@ loop:
 	    throw new EOFException ("no more input");
 	}
 
-	Object[] input = (Object[]) inputStack.pop ();
+	Object[] input = inputStack.pop ();
 
 	sourceType = ((Integer) input [0]).intValue ();
 	readBuffer = (char[]) input [2];
@@ -2338,7 +2341,7 @@ loop:
 	nameBuffer = new char [NAME_BUFFER_INITIAL];
 
 	// Set up the DTD hash tables
-	entityInfo = new Hashtable ();
+	entityInfo = new Hashtable<String, Object[]> ();
 
 	// Set up the variables for the current
 	// element context.
@@ -2346,7 +2349,7 @@ loop:
 
 	// Set up the input variables
 	sourceType = INPUT_NONE;
-	inputStack = new Stack ();
+	inputStack = new Stack<Object[]> ();
 	readBufferOverflow = -1;
 
 	symbolTable = new Object [SYMBOL_TABLE_LENGTH][];
@@ -2373,7 +2376,7 @@ loop:
     //
     // I/O information.
     //
-    private Stack	inputStack; 	// stack of input soruces
+    private Stack<Object[]>	inputStack; 	// stack of input soruces
     private int		line; 		// current line number
     private int		column; 	// current column number
     private int		sourceType; 	// type of input source
@@ -2412,7 +2415,7 @@ loop:
     //
     // Hashtables for DTD information on elements, entities, and notations.
     //
-    private Hashtable	entityInfo;
+    private Hashtable<String, Object[]>	entityInfo;
 
 
     //

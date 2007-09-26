@@ -6,11 +6,6 @@ use strict;
 #			IDL to Java Language Mapping Specification, Version 1.2 August 2002
 #
 
-package CORBA::JAVA::class;
-
-use vars qw($VERSION);
-$VERSION = '2.49';
-
 package CORBA::JAVA::classVisitor;
 
 use Data::Dumper;

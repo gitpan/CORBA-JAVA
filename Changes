@@ -1,5 +1,8 @@
 Revision history for Perl extension CORBA::JAVA.
 
+2.50  Wed Sep 26 12:30:00 2007
+	- reorg: more compliant with CPAN requirements
+
 2.49  Fri Aug 25 08:30:00 2006
 	- fix typedef in parameter of operation
 	- fix typedef in struct member
