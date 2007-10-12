@@ -1,9 +1,12 @@
 Changes
 lib/CORBA/JAVA.pm
-lib/CORBA/JAVA/class.pm
-lib/CORBA/JAVA/literal.pm
-lib/CORBA/JAVA/name.pm
-lib/CORBA/JAVA/xml.pm
+lib/CORBA/JAVA/ClassVisitor.pm
+lib/CORBA/JAVA/ClassXmlVisitor.pm
+lib/CORBA/JAVA/LiteralVisitor.pm
+lib/CORBA/JAVA/NameVisitor.pm
+lib/CORBA/JAVA/Name2Visitor.pm
+lib/CORBA/JAVA/NameXmlVisitor.pm
+lib/CORBA/JAVA/UidVisitor.pm
 bin/idl2java
 bin/idl2javaxml
 javaxml/XMLInputStream.java

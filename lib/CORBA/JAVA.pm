@@ -1,9 +1,15 @@
 use strict;
+use warnings;
 
 package CORBA::JAVA;
 
-use vars qw($VERSION);
-$VERSION = '2.50';
+our $VERSION = '2.60';
+
+use CORBA::JAVA::ClassVisitor;
+use CORBA::JAVA::LiteralVisitor;
+use CORBA::JAVA::NameVisitor;
+use CORBA::JAVA::Name2Visitor;
+use CORBA::JAVA::UidVisitor;
 
 1;
 
