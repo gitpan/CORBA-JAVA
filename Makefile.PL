@@ -6,7 +6,7 @@ WriteMakefile(
     'VERSION_FROM'  => 'lib/CORBA/JAVA.pm',
     'ABSTRACT'      => 'IDL compiler to JAVA (idlj clone)',
     'PREREQ_PM'     => {
-                        'CORBA::IDL'            => 2.60,
+                        'CORBA::IDL'            => 2.61,
                         'CORBA::XMLSchemas'     => 2.60,
     },
     'INSTALLDIRS'   => 'site',

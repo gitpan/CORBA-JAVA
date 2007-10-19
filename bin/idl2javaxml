@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use CORBA::IDL      2.60;
+use CORBA::IDL      2.61;
 use CORBA::JAVA;
 # visitors
 use CORBA::IDL::RepositoryIdVisitor;

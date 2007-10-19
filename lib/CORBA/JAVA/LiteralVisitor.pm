@@ -10,7 +10,7 @@ package CORBA::JAVA::LiteralVisitor;
 use strict;
 use warnings;
 
-our $VERSION = '2.60';
+our $VERSION = '2.61';
 
 # needs $node->{java_name} (JavaNameVisitor) for Enum
 # builds $node->{java_literal}
@@ -172,7 +172,10 @@ sub visitExpression {
                 and ! exists $type->{array_size} ) {
             $type = $self->_get_defn($type->{type});
         }
-        if    ($type->{value} eq 'short') {
+        if ($type->isa('EnumType')) {
+            # empty
+        }
+        elsif ($type->{value} eq 'short') {
             $cast = '(short)';
         }
         elsif ($type->{value} eq 'unsigned short') {

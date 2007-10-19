@@ -10,7 +10,7 @@ package CORBA::JAVA::UidVisitor;
 use strict;
 use warnings;
 
-our $VERSION = '2.60';
+our $VERSION = '2.61';
 
 use Data::Dumper;
 use Digest::SHA1 qw(sha1_hex);
@@ -212,7 +212,7 @@ sub visitUnionType {
         my $elt = $self->_get_defn($_->{element});
         $elt->visit($self);
         foreach my $label (@{$_->{list_label}}) {
-            if (ref $label eq 'Default') {
+            if (ref $label eq 'CORBA::IDL::Default') {
                 $uid->{default} = $elt->{java_Name};
             }
             else {

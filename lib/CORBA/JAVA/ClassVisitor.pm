@@ -10,7 +10,7 @@ package CORBA::JAVA::ClassVisitor;
 use strict;
 use warnings;
 
-our $VERSION = '2.60';
+our $VERSION = '2.61';
 
 use Data::Dumper;
 use Digest::SHA1 qw(sha1_hex);
@@ -74,7 +74,9 @@ sub _no_mapping {
     my $self = shift;
     my ($node) = @_;
     return unless ($self->{srcname} eq $node->{filename});
-    if (ref($node) =~ /^Forward/) {
+    my $class = ref $node;
+    $class = substr $class, rindex($class, ':') + 1;
+    if ($class =~ /^Forward/) {
         $node = $self->{symbtab}->Lookup($node->{full});
     }
     my $FH = $self->{out};
