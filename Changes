@@ -1,5 +1,8 @@
 Revision history for Perl extension CORBA::JAVA.
 
+2.62  Thu Jun  5 12:30:00 2008
+	- fix union when discriminator is a typedef
+    
 2.61  Fri Oct 19 08:30:00 2007
 	- compatible with CORBA::IDL 2.61
 

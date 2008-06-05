@@ -10,7 +10,7 @@ package CORBA::JAVA::LiteralVisitor;
 use strict;
 use warnings;
 
-our $VERSION = '2.61';
+our $VERSION = '2.62';
 
 # needs $node->{java_name} (JavaNameVisitor) for Enum
 # builds $node->{java_literal}
@@ -374,6 +374,10 @@ sub visitUnionType {
     return if (exists $node->{$self->{key}});
     $node->{$self->{key}} = 1;
     my $type = $self->_get_defn($node->{type});
+    while (     $type->isa('TypeDeclarator')
+           and ! exists $type->{array_size} ) {
+        $type = $self->_get_defn($type->{type});
+    }
     $self->visitType($type);
     foreach (@{$node->{list_expr}}) {
         $_->visit($self, $type);        # case

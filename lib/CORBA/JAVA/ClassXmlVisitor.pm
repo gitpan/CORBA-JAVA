@@ -8,7 +8,7 @@ package CORBA::JAVA::ClassXmlVisitor;
 use strict;
 use warnings;
 
-our $VERSION = '2.60';
+our $VERSION = '2.62';
 
 use CORBA::JAVA::ClassVisitor;
 use base qw(CORBA::JAVA::ClassVisitor);
@@ -645,7 +645,7 @@ sub _member_helperXML_write {
 #
 
 sub _union_helperXML {
-    my ($self, $node, $dis) = @_;
+    my ($self, $node, $dis, $effective_dis) = @_;
 
     $self->open_stream($node, 'HelperXML.java');
     my $FH = $self->{out};
@@ -660,10 +660,10 @@ sub _union_helperXML {
     print $FH "  public static ",$node->{java_Name}," read (",$self->{xml_pkg},"InputStream \$is, java.lang.String tag)\n";
     print $FH "  {\n";
     print $FH "    ",$node->{java_Name}," value = new ",$node->{java_Name}," ();\n";
-    print $FH "    ",$dis->{java_Name}," _dis0 = ",$dis->{java_init},";\n";
+    print $FH "    ",$effective_dis->{java_Name}," _dis0 = ",$effective_dis->{java_init},";\n";
     print $FH "    \$is.read_open_tag (tag);\n";
     print $FH "    _dis0 = ",$dis->{java_read_xml},"\"discriminator\");\n";
-    if ($dis->isa('EnumType')) {
+    if ($effective_dis->isa('EnumType')) {
         print $FH "    switch (_dis0.value ())\n";
     }
     else {
@@ -684,7 +684,7 @@ sub _union_helperXML {
         my $value = $self->_get_defn($elt->{value});
         $self->_member_helperXML_read($value, $node, \$idx);
         if (scalar(@{$case->{list_label}}) > 1) {
-            if ($dis->isa('EnumType')) {
+            if ($effective_dis->isa('EnumType')) {
                 print $FH "        value.",$value->{java_name}," (_dis0.value (), _",$value->{java_name},");\n";
             }
             else {
@@ -714,7 +714,7 @@ sub _union_helperXML {
     print $FH "  {\n";
     print $FH "    \$os.write_open_tag (tag);\n";
     print $FH "    ",$dis->{java_write_xml},"value.discriminator (), \"discriminator\");\n";
-    if ($dis->isa('EnumType')) {
+    if ($effective_dis->isa('EnumType')) {
         print $FH "    switch (value.discriminator ().value ())\n";
     }
     else {

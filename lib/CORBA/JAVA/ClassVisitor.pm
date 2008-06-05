@@ -10,7 +10,7 @@ package CORBA::JAVA::ClassVisitor;
 use strict;
 use warnings;
 
-our $VERSION = '2.61';
+our $VERSION = '2.62';
 
 use Data::Dumper;
 use Digest::SHA1 qw(sha1_hex);
@@ -2237,7 +2237,7 @@ sub _member_equals {
 #
 
 sub _union_helper {
-    my ($self, $node, $dis) = @_;
+    my ($self, $node, $dis, $effective_dis) = @_;
 
     $self->open_stream($node, 'Helper.java');
     my $FH = $self->{out};
@@ -2274,7 +2274,7 @@ sub _union_helper {
     print $FH "          }\n";
     print $FH "          __active = true;\n";
     print $FH "          org.omg.CORBA.TypeCode _disTypeCode0;\n";
-    if ($dis->isa('EnumType')) {
+    if ($effective_dis->isa('EnumType')) {
         print $FH "          _disTypeCode0 = ",$dis->{java_Name},"Helper.type ();\n";
     }
     else {
@@ -2297,7 +2297,7 @@ sub _union_helper {
             else {
                 print $FH "          // Branch for ",$value->{java_name}," (case label ",$_->{java_literal},")\n";
                 print $FH "          _anyOf_members0 = org.omg.CORBA.ORB.init ().create_any ();\n";
-                if ($dis->isa('EnumType')) {
+                if ($effective_dis->isa('EnumType')) {
                     print $FH "          ",$dis->{java_Name},"Helper.insert (_anyOf_members0, ",$_->{value}->{java_literal},");\n";
                 }
                 else {
@@ -2325,12 +2325,12 @@ sub _union_helper {
     print $FH "  public static ",$node->{java_Name}," read (org.omg.CORBA.portable.InputStream \$is)\n";
     print $FH "  {\n";
     print $FH "    ",$node->{java_Name}," value = new ",$node->{java_Name}," ();\n";
-    print $FH "    ",$dis->{java_Name}," _dis0 = ",$dis->{java_init},";\n";
+    print $FH "    ",$effective_dis->{java_Name}," _dis0 = ",$effective_dis->{java_init},";\n";
     print $FH "    _dis0 = ",$dis->{java_read},";\n";
-    if    ($dis->isa('EnumType')) {
+    if    ($effective_dis->isa('EnumType')) {
         print $FH "    switch (_dis0.value ())\n";
     }
-    elsif ($dis->isa('BooleanType')) {
+    elsif ($effective_dis->isa('BooleanType')) {
         print $FH "    int __dis0 = (_dis0) ? 1 : 0;\n";
         print $FH "    switch (__dis0)\n";
     }
@@ -2345,7 +2345,7 @@ sub _union_helper {
                 print $FH "      default:\n";
             }
             else {
-                if ($dis->isa('BooleanType')) {
+                if ($effective_dis->isa('BooleanType')) {
                     my $value = ($_->{value} eq 'TRUE') ? '1' : '0';
                     print $FH "      case ",$value,":\n";
                 }
@@ -2376,10 +2376,10 @@ sub _union_helper {
     print $FH "  public static void write (org.omg.CORBA.portable.OutputStream \$os, ",$node->{java_Name}," value)\n";
     print $FH "  {\n";
     print $FH "    ",$dis->{java_write},"value.discriminator ());\n";
-    if    ($dis->isa('EnumType')) {
+    if    ($effective_dis->isa('EnumType')) {
         print $FH "    switch (value.discriminator ().value ())\n";
     }
-    elsif ($dis->isa('BooleanType')) {
+    elsif ($effective_dis->isa('BooleanType')) {
         print $FH "    int _dis = (value.discriminator ()) ? 1 : 0;\n";
         print $FH "    switch (_dis)\n";
     }
@@ -2394,7 +2394,7 @@ sub _union_helper {
                 print $FH "      default:\n";
             }
             else {
-                if ($dis->isa('BooleanType')) {
+                if ($effective_dis->isa('BooleanType')) {
                     my $value = ($_->{value} eq 'TRUE') ? '1' : '0';
                     print $FH "      case ",$value,":\n";
                 }
@@ -2420,7 +2420,7 @@ sub _union_helper {
 }
 
 sub _union {
-    my ($self, $node, $dis) = @_;
+    my ($self, $node, $dis, $effective_dis) = @_;
 
     $self->open_stream($node, '.java');
     my $FH = $self->{out};
@@ -2437,7 +2437,7 @@ sub _union {
     }
     print $FH "\n";
     print $FH "  private java.lang.Object __object;\n";
-    print $FH "  private ",$dis->{java_Name}," __discriminator;\n";
+    print $FH "  private ",$effective_dis->{java_Name}," __discriminator;\n";
     print $FH "  private boolean __uninitialized;\n";
     print $FH "\n";
     print $FH "  public ",$node->{java_name}," ()\n";
@@ -2446,7 +2446,7 @@ sub _union {
     print $FH "    __uninitialized = true;\n";
     print $FH "  }\n";
     print $FH "\n";
-    print $FH "  public ",$dis->{java_Name}," discriminator ()\n";
+    print $FH "  public ",$effective_dis->{java_Name}," discriminator ()\n";
     print $FH "  {\n";
     print $FH "    if (__uninitialized)\n";
     print $FH "      throw new org.omg.CORBA.BAD_OPERATION ();\n";
@@ -2473,7 +2473,7 @@ sub _union {
                 }
                 next if ($find);
                 $cond .= "\n     || " unless ($first);
-                if ($dis->isa('EnumType')) {
+                if ($effective_dis->isa('EnumType')) {
                     $cond .= "__discriminator == " . $_->{value}->{java_literal};
                 }
                 else {
@@ -2486,7 +2486,7 @@ sub _union {
             $first = 1;
             foreach (@{$case->{list_label}}) {
                 $cond .= "\n     && " unless ($first);
-                if ($dis->isa('EnumType')) {
+                if ($effective_dis->isa('EnumType')) {
                     $cond .= "__discriminator != " . $_->{value}->{java_literal};
                 }
                 else {
@@ -2514,7 +2514,7 @@ sub _union {
         }
         else {
             $label = ${$case->{list_label}}[0];
-            if ($dis->isa('EnumType')) {
+            if ($effective_dis->isa('EnumType')) {
                 print $FH "    __discriminator = ",$label->{value}->{java_literal},";\n";
             }
             else {
@@ -2543,7 +2543,7 @@ sub _union {
                     }
                     next if ($find);
                     $cond .= "\n     || " unless ($first);
-                    if ($dis->isa('EnumType')) {
+                    if ($effective_dis->isa('EnumType')) {
                         $cond .= "discriminator == " . $_->{value}->{java_literal};
                     }
                     else {
@@ -2556,7 +2556,7 @@ sub _union {
                 $first = 1;
                 foreach (@{$case->{list_label}}) {
                     $cond .= "\n     && " unless ($first);
-                    if ($dis->isa('EnumType')) {
+                    if ($effective_dis->isa('EnumType')) {
                         $cond .= "discriminator != " . $_->{value}->{java_literal};
                     }
                     else {
@@ -2584,7 +2584,7 @@ sub _union {
     if (exists $node->{need_default}) {
         print $FH "  public void _default ()\n";
         print $FH "  {\n";
-        if    ($dis->isa('EnumType')) {
+        if    ($effective_dis->isa('EnumType')) {
             foreach (@{$dis->{list_expr}}) {
                 unless (exists $node->{hash_member}->{$_}) {
                     print $FH "    __discriminator = ",$_->{java_literal},";\n";
@@ -2592,7 +2592,7 @@ sub _union {
                 }
             }
         }
-        elsif ($dis->isa('BooleanType')) {
+        elsif ($effective_dis->isa('BooleanType')) {
             if (exists $node->{hash_member}->{0}) {
                 print $FH "    __discriminator = true;\n";
             }
@@ -2615,10 +2615,10 @@ sub _union {
         print $FH "\n";
         print $FH "  public void _default (",$dis->{java_Name}," discriminator)\n";
         print $FH "  {\n";
-        if    ($dis->isa('EnumType')) {
+        if    ($effective_dis->isa('EnumType')) {
             print $FH "    switch (discriminator.value ())\n";
         }
-        elsif ($dis->isa('BooleanType')) {
+        elsif ($effective_dis->isa('BooleanType')) {
             print $FH "    int _dis = (discriminator) ? 1 : 0;\n";
             print $FH "    switch (_dis)\n";
         }
@@ -2628,7 +2628,7 @@ sub _union {
         print $FH "    {\n";
         foreach my $case (@{$node->{list_expr}}) {
             foreach (@{$case->{list_label}}) {  # expression
-                if ($dis->isa('BooleanType')) {
+                if ($effective_dis->isa('BooleanType')) {
                     my $value = ($_->{value} eq 'TRUE') ? '1' : '0';
                     print $FH "      case ",$value,":\n";
                 }
@@ -2649,10 +2649,10 @@ sub _union {
         print $FH "  public java.lang.String toString ()\n";
         print $FH "  {\n";
         print $FH "    java.lang.StringBuffer _ret = new java.lang.StringBuffer (\"union ",$node->{java_name}," {\");\n";
-        if    ($dis->isa('EnumType')) {
+        if    ($effective_dis->isa('EnumType')) {
             print $FH "    switch (discriminator ().value ())\n";
         }
-        elsif ($dis->isa('BooleanType')) {
+        elsif ($effective_dis->isa('BooleanType')) {
             print $FH "    int _dis = (discriminator ()) ? 1 : 0;\n";
             print $FH "    switch (_dis)\n";
         }
@@ -2669,7 +2669,7 @@ sub _union {
                     print $FH "      default:\n";
                 }
                 else {
-                    if ($dis->isa('BooleanType')) {
+                    if ($effective_dis->isa('BooleanType')) {
                         my $value = ($_->{value} eq 'TRUE') ? '1' : '0';
                         print $FH "      case ",$value,":\n";
                     }
@@ -2734,12 +2734,18 @@ sub visitUnionType {
         }
     }
     my $dis = $self->_get_defn($node->{type});
-    $dis->visit($self) if ($dis->isa('EnumType'));
+    my $effective_dis = $dis;
+    while (     $effective_dis->isa('TypeDeclarator')
+           and ! exists $effective_dis->{array_size} ) {
+        $effective_dis = $self->_get_defn($effective_dis->{type});
+    }
+
+    $dis->visit($self) if ($effective_dis->isa('EnumType'));
 
     $self->_holder($node);
-    $self->_union_helper($node, $dis);
-    $self->_union($node, $dis);
-    $self->_union_helperXML($node, $dis) if ($self->can('_union_helperXML'));
+    $self->_union_helper($node, $dis, $effective_dis);
+    $self->_union($node, $dis, $effective_dis);
+    $self->_union_helperXML($node, $dis, $effective_dis) if ($self->can('_union_helperXML'));
 }
 
 #   3.11.2.3    Constructed Recursive Types and Forward Declarations
