@@ -8,7 +8,7 @@ package CORBA::JAVA::ClassXmlVisitor;
 use strict;
 use warnings;
 
-our $VERSION = '2.62';
+our $VERSION = '2.63';
 
 use CORBA::JAVA::ClassVisitor;
 use base qw(CORBA::JAVA::ClassVisitor);
@@ -672,9 +672,11 @@ sub _union_helperXML {
     print $FH "    {\n";
     my $idx = 0;
     foreach my $case (@{$node->{list_expr}}) {
+        my $flag_default = 0;
         foreach (@{$case->{list_label}}) {  # default or expression
             if ($_->isa('Default')) {
                 print $FH "      default:\n";
+                $flag_default = 1;
             }
             else {
                 print $FH "      case ",$_->{java_literal},":\n";
@@ -683,7 +685,7 @@ sub _union_helperXML {
         my $elt = $case->{element};
         my $value = $self->_get_defn($elt->{value});
         $self->_member_helperXML_read($value, $node, \$idx);
-        if (scalar(@{$case->{list_label}}) > 1) {
+        if (scalar(@{$case->{list_label}}) > 1 || $flag_default) {
             if ($effective_dis->isa('EnumType')) {
                 print $FH "        value.",$value->{java_name}," (_dis0.value (), _",$value->{java_name},");\n";
             }

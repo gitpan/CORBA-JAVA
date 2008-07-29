@@ -17,7 +17,8 @@ javaxml/PYXInputStreamImpl.java
 javaxml/PYXOutputStreamImpl.java
 MANIFEST
 Makefile.PL
-test.pl
+t/CORBA-JAVA.t
+t/pod.t
 README
 
 META.yml                                 Module meta-data (added by MakeMaker)
