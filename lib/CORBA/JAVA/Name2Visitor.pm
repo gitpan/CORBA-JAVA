@@ -10,7 +10,7 @@ package CORBA::JAVA::Name2Visitor;
 use strict;
 use warnings;
 
-our $VERSION = '2.60';
+our $VERSION = '2.64';
 
 use CORBA::JAVA::NameVisitor;
 use base qw(CORBA::JAVA::NameVisitor);
@@ -714,34 +714,8 @@ sub visitOperation {
     $node->{java_params} = q{};
     my $first = 1;
     foreach (@{$node->{list_param}}) {
-        my $type = $self->_get_defn($_->{type});
-        my $array = q{};
-        while ($type->isa('TypeDeclarator') and !exists($type->{array_size})) {
-            $type = $self->_get_defn($type->{type});
-        }
-        if ($type->isa('SequenceType') or exists ($type->{array_size})) {
-            if ($type->{array_size}) {
-                foreach (@{$type->{array_size}}) {
-                    $array .= '[]';
-                }
-                $type = $self->_get_defn($type->{type});
-            }
-            while ($type->isa('SequenceType')) {
-                $array .= '[]';
-                $type = $self->_get_defn($type->{type});
-                while ($type->isa('TypeDeclarator')) {
-                    if (exists $type->{array_size}) {
-                        foreach (@{$type->{array_size}}) {
-                            $array .= '[]';
-                        }
-                    }
-                    $type = $self->_get_defn($type->{type});
-                }
-            }
-        }
-        $type->visit($self);
         $node->{java_params} .= ", " unless ($first);
-        $node->{java_params} .= $type->{java_Name} . $array;
+        $node->{java_params} .= $_->{java_Type};
         $node->{java_params} .= " " . $_->{java_name};
         $first = 0;
     }
