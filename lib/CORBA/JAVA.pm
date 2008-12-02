@@ -3,7 +3,7 @@ use warnings;
 
 package CORBA::JAVA;
 
-our $VERSION = '2.64';
+our $VERSION = '2.65';
 
 use CORBA::JAVA::ClassVisitor;
 use CORBA::JAVA::LiteralVisitor;

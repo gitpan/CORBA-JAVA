@@ -15,5 +15,6 @@ WriteMakefile(
     'dist'          => {
                         'COMPRESS'      => 'gzip',
                         'SUFFIX'        => '.gz',
+                        'TARFLAGS'      => '--create --verbose --mode=0700 --file',
     },
 );
