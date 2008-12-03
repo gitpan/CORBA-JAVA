@@ -1,6 +1,9 @@
 Revision history for Perl extension CORBA::JAVA.
 
-2.65  Mon Dec  2 12:30:00 2008
+2.66  Wed Dec  3 12:30:00 2008
+	- now package generated on Ubuntu 8.10 Ibex with Perl 5.10.0
+
+2.65  Tue Dec  2 12:30:00 2008
 	- fix world writable permission (for PAUSE indexer)
 
 2.64  Mon Dec  1 18:30:00 2008
